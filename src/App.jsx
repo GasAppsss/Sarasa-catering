@@ -3,16 +3,14 @@ import { CheckCircle2 } from 'lucide-react';
 import { Footer } from './components/layout/Footer.jsx';
 import { Navbar } from './components/layout/Navbar.jsx';
 import { TeamAuthModal } from './components/layout/TeamAuthModal.jsx';
-import { OrderTrackerModal } from './components/shared/OrderTrackerModal.jsx';
+import { PackageDetailDrawer } from './components/shared/PackageDetailDrawer.jsx';
 import { ROLES, SCOPES } from './config/rbac.js';
 import { AppProvider, useApp } from './context/AppContext.jsx';
 import { AdminDashboardView } from './features/admin/AdminDashboardView.jsx';
-import { BookingCalculator } from './features/client/BookingCalculator.jsx';
-import { CapacityCalendar } from './features/client/CapacityCalendar.jsx';
+import { BookingWizard } from './features/client/BookingWizard.jsx';
 import { ClientPortalView } from './features/client/ClientPortalView.jsx';
-import { CompanyInfoSection } from './features/client/CompanyInfoSection.jsx';
-import { FaqAndTermsSection } from './features/client/FaqAndTermsSection.jsx';
 import { HeroShowcase } from './features/client/HeroShowcase.jsx';
+import { InfoAndFaqSection } from './features/client/InfoAndFaqSection.jsx';
 import { PackageCatalogSection } from './features/client/PackageCatalogSection.jsx';
 import { DeveloperConsoleView } from './features/developer/DeveloperConsoleView.jsx';
 import { KitchenDashboardView } from './features/kitchen/KitchenDashboardView.jsx';
@@ -37,9 +35,8 @@ function AppShell() {
   const [selectedPkgId, setSelectedPkgId] = useState(activePackages[0]?.id || 'pkg-1');
   const [pax, setPax] = useState(activePackages[0]?.minOrder || 50);
   const [eventDate, setEventDate] = useState(firstAvailableDate);
-  const [formError, setFormError] = useState('');
 
-  const [trackerOpen, setTrackerOpen] = useState(false);
+  const [drawerPkg, setDrawerPkg] = useState(null);
   const [portalOrder, setPortalOrder] = useState(null);
   const [authModalState, setAuthModalState] = useState({
     open: false,
@@ -85,7 +82,7 @@ function AppShell() {
     }
     navigateView('showcase');
     setTimeout(() => {
-      document.getElementById('booking-calculator-section')?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('booking-wizard-section')?.scrollIntoView({ behavior: 'smooth' });
     }, 60);
   };
 
@@ -97,13 +94,13 @@ function AppShell() {
 
   const renderMainView = () => {
     if (activeView === 'developer' && hasScope(SCOPES.DEV_THEME_TOKENS_EDIT)) {
-      return <DeveloperConsoleView />;
+      return <DeveloperConsoleView onBackToSite={() => navigateView('showcase')} />;
     }
     if (activeView === 'admin' && hasScope(SCOPES.ADMIN_ANALYTICS_VIEW)) {
       return <AdminDashboardView onSwitchToShowcase={() => navigateView('showcase')} />;
     }
     if (activeView === 'kitchen' && hasScope(SCOPES.KITCHEN_SHEET_VIEW)) {
-      return <KitchenDashboardView />;
+      return <KitchenDashboardView onBackToSite={() => navigateView('showcase')} />;
     }
     if (activeView === 'client-portal') {
       return (
@@ -121,35 +118,29 @@ function AppShell() {
           activeIndex={showcaseIdx}
           onSelectIndex={handleSelectShowcaseIndex}
           onSelectPackageForBooking={handleSelectPackageForBooking}
-          onOpenTracker={() => setTrackerOpen(true)}
-          onOpenClientPortal={() => openPortalWithOrder(null)}
+          onOpenDetailDrawer={(pkg) => setDrawerPkg(pkg)}
         />
-        <CompanyInfoSection />
-        <PackageCatalogSection onSelectPackageForBooking={handleSelectPackageForBooking} />
-        <CapacityCalendar
-          selectedDate={eventDate}
-          onSelectDate={setEventDate}
-          onErrorMessage={setFormError}
+        <PackageCatalogSection
+          onSelectPackageForBooking={handleSelectPackageForBooking}
+          onOpenDetailDrawer={(pkg) => setDrawerPkg(pkg)}
         />
-        <BookingCalculator
+        <BookingWizard
           selectedPkgId={selectedPkgId}
           onChangePkgId={setSelectedPkgId}
           pax={pax}
           onChangePax={setPax}
           eventDate={eventDate}
           onChangeEventDate={setEventDate}
-          formError={formError}
-          onChangeFormError={setFormError}
           onOrderCreated={(ord) => setPortalOrder(ord)}
           onOpenClientPortal={openPortalWithOrder}
         />
-        <FaqAndTermsSection />
+        <InfoAndFaqSection />
       </main>
     );
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg text-stone-800 font-sans selection:bg-amber-200 selection:text-emerald-950 flex flex-col justify-between">
+    <div className="min-h-screen bg-brand-bg text-zinc-800 font-sans selection:bg-emerald-100 selection:text-emerald-950 flex flex-col justify-between">
       <div>
         <Navbar
           onOpenTeamAuth={() =>
@@ -172,17 +163,17 @@ function AppShell() {
       {toastMessage && (
         <div
           role="status"
-          className="no-print fixed bottom-6 right-6 z-50 max-w-sm bg-brand-dark text-white px-4 py-3.5 rounded-2xl shadow-2xl border border-amber-400/60 flex items-center gap-3 animate-slide-in-right"
+          className="no-print fixed bottom-6 right-6 z-50 max-w-sm bg-zinc-900 text-white px-4 py-3 rounded-xl shadow-lg border border-zinc-700 flex items-center gap-2.5 animate-slide-in-right"
         >
-          <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
-          <p className="text-sm font-medium">{toastMessage}</p>
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <p className="text-xs font-medium">{toastMessage}</p>
         </div>
       )}
 
-      <OrderTrackerModal
-        isOpen={trackerOpen}
-        onClose={() => setTrackerOpen(false)}
-        onOpenClientPortal={openPortalWithOrder}
+      <PackageDetailDrawer
+        pkg={drawerPkg}
+        onClose={() => setDrawerPkg(null)}
+        onSelectPackage={handleSelectPackageForBooking}
       />
 
       <TeamAuthModal

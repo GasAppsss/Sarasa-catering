@@ -4,12 +4,10 @@ import {
   Code2,
   LayoutDashboard,
   LogOut,
-  ShieldCheck,
-  Store,
   UserCheck,
   Utensils,
 } from 'lucide-react';
-import { ROLES, ROLE_META } from '../../config/rbac.js';
+import { ROLE_META, ROLES } from '../../config/rbac.js';
 import { useApp } from '../../context/AppContext.jsx';
 
 export function Navbar({ onOpenTeamAuth }) {
@@ -18,14 +16,11 @@ export function Navbar({ onOpenTeamAuth }) {
     activeView,
     navigateView,
     config,
-    orders,
-    backendStatus,
     quickSwitchDemoRole,
     logoutToClient,
   } = useApp();
 
-  const { brand, business, featureFlags } = config;
-  const activeOrdersCount = orders.filter((o) => o.status !== 'Selesai').length;
+  const { brand, featureFlags } = config;
   const isStaff = activeRole !== ROLES.CLIENT;
   const showDemoSwitcher = Boolean(featureFlags?.enableDemoQuickSwitch) || activeRole === ROLES.DEVELOPER;
 
@@ -41,99 +36,57 @@ export function Navbar({ onOpenTeamAuth }) {
   };
 
   return (
-    <header className="no-print sticky top-0 z-40 shadow-lg border-b border-white/10 backdrop-blur-md bg-brand-dark/95 text-white">
-      {business?.announcementBanner && activeView === 'showcase' && (
-        <div className="bg-brand-accent text-brand-dark text-[11px] sm:text-xs font-bold py-1.5 px-4 text-center">
-          {business.announcementBanner}
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex items-center justify-between w-full md:w-auto gap-3">
-          <button
-            type="button"
-            onClick={() => navigateView('showcase')}
-            className="flex items-center gap-3 text-left cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md group-hover:scale-105 transition-transform">
-              <Utensils className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-tight text-white">
-                  {brand?.shortName || 'SAJIAN'}
-                </span>
-                <span className="text-amber-300 font-light tracking-widest text-sm">
-                  {brand?.subName || 'CATERING'}
-                </span>
-                {brand?.badgeText && (
-                  <span className="hidden lg:inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-amber-200 font-semibold border border-amber-300/30">
-                    {brand.badgeText}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-emerald-200/85 line-clamp-1">{brand?.tagline}</p>
-            </div>
-          </button>
-
-          <span
-            title={backendStatus === 'connected' ? 'Terhubung ke API Backend' : 'Mode Demo Lokal'}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-              backendStatus === 'connected'
-                ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                : 'bg-white/10 border-white/20 text-amber-200'
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                backendStatus === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'
-              }`}
-            />
-            {backendStatus === 'connected' ? 'API Live' : 'Demo Lokal'}
+    <header className="no-print sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-zinc-200/80">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <button
+          type="button"
+          onClick={() => navigateView('showcase')}
+          className="flex items-center gap-2.5 text-left cursor-pointer group shrink-0"
+        >
+          <span className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center transition-transform group-hover:scale-105">
+            <Utensils className="w-4 h-4" />
           </span>
-        </div>
+          <span className="font-bold text-sm sm:text-base tracking-tight text-zinc-900">
+            {brand?.shortName || 'SAJIAN'}{' '}
+            <span className="font-medium text-zinc-500">{brand?.subName || 'CATERING'}</span>
+          </span>
+        </button>
 
-        <nav aria-label="Navigasi Utama" className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => scrollToSection('hero-showcase-section')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              activeView === 'showcase' ? 'bg-white/15 text-white' : 'text-emerald-100 hover:bg-white/10'
-            }`}
-          >
-            Showcase
-          </button>
+        <nav aria-label="Navigasi Utama" className="hidden md:flex items-center gap-1">
           <button
             type="button"
             onClick={() => scrollToSection('catalog-section')}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-white/10 transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            Katalog Menu
+            Menu &amp; Paket
           </button>
           <button
             type="button"
-            onClick={() => scrollToSection('booking-calculator-section')}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-white/10 transition-colors cursor-pointer"
+            onClick={() => scrollToSection('booking-wizard-section')}
+            className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            Kalkulator
+            Pesan Acara
           </button>
           {featureFlags?.enableFaqSection !== false && (
             <button
               type="button"
-              onClick={() => scrollToSection('faq-section')}
-              className="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-white/10 transition-colors cursor-pointer"
+              onClick={() => scrollToSection('info-faq-section')}
+              className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
             >
-              FAQ &amp; S&amp;K
+              Tentang &amp; FAQ
             </button>
           )}
+        </nav>
+
+        <div className="flex items-center gap-2">
           {featureFlags?.enableClientPortal !== false && (
             <button
               type="button"
               onClick={() => navigateView('client-portal')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                 activeView === 'client-portal'
-                  ? 'bg-brand-accent text-brand-dark shadow-sm'
-                  : 'bg-white/10 hover:bg-white/20 text-amber-200 border border-amber-300/30'
+                  ? 'bg-zinc-900 text-white'
+                  : 'text-zinc-700 hover:bg-zinc-100 border border-zinc-200'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -141,14 +94,22 @@ export function Navbar({ onOpenTeamAuth }) {
             </button>
           )}
 
-          {isStaff && (
-            <div className="flex items-center gap-1.5 pl-2 border-l border-white/20">
+          {!isStaff ? (
+            <button
+              type="button"
+              onClick={() => scrollToSection('booking-wizard-section')}
+              className="hidden sm:inline-flex items-center px-4 py-2 rounded-lg bg-brand-primary hover:bg-brand-dark text-white text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Pesan Sekarang
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-200">
               {activeRole === ROLES.KITCHEN && (
                 <button
                   type="button"
                   onClick={() => navigateView('kitchen')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                    activeView === 'kitchen' ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-white'
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
+                    activeView === 'kitchen' ? 'bg-brand-primary text-white' : 'bg-zinc-100 text-zinc-700'
                   }`}
                 >
                   <ChefHat className="w-3.5 h-3.5" />
@@ -159,74 +120,71 @@ export function Navbar({ onOpenTeamAuth }) {
                 <button
                   type="button"
                   onClick={() => navigateView('admin')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                    activeView === 'admin' ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-white'
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
+                    activeView === 'admin' ? 'bg-brand-primary text-white' : 'bg-zinc-100 text-zinc-700'
                   }`}
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   <span>Admin</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-amber-300 text-[10px]">
-                    {activeOrdersCount}
-                  </span>
                 </button>
               )}
               {activeRole === ROLES.DEVELOPER && (
                 <button
                   type="button"
                   onClick={() => navigateView('developer')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                    activeView === 'developer' ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-amber-300'
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
+                    activeView === 'developer' ? 'bg-brand-primary text-white' : 'bg-zinc-100 text-zinc-700'
                   }`}
                 >
                   <Code2 className="w-3.5 h-3.5" />
-                  <span>Dev Config</span>
+                  <span>Dev</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={logoutToClient}
-                title="Keluar ke Mode Klien"
-                className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 cursor-pointer"
+                aria-label="Keluar ke tampilan klien"
+                title="Keluar ke tampilan klien"
+                className="p-2 rounded-lg text-zinc-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
-        </nav>
+        </div>
       </div>
 
       {showDemoSwitcher && (
-        <div className="bg-black/30 border-t border-white/10 px-4 py-1.5">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[11px]">
-            <span className="inline-flex items-center gap-1.5 text-amber-300 font-semibold">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Demo Quick-Switch POV (Aktif: {ROLE_META[activeRole]?.shortLabel}):</span>
+        <div className="bg-zinc-50 border-t border-zinc-200 px-4 py-1.5">
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-600">
+            <span className="font-medium">
+              Mode Demo Quick-Switch · Aktif:{' '}
+              <strong className="text-zinc-900">{ROLE_META[activeRole]?.shortLabel}</strong>
             </span>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {[
-                { id: ROLES.CLIENT, label: 'Klien', icon: Store },
-                { id: ROLES.KITCHEN, label: 'Admin Dapur', icon: ChefHat },
-                { id: ROLES.ADMIN, label: 'Administrator', icon: LayoutDashboard },
-                { id: ROLES.DEVELOPER, label: 'Pengembang', icon: Code2 },
-              ].map(({ id, label, icon: Icon }) => (
+                { id: ROLES.CLIENT, label: 'Klien' },
+                { id: ROLES.KITCHEN, label: 'Dapur' },
+                { id: ROLES.ADMIN, label: 'Admin' },
+                { id: ROLES.DEVELOPER, label: 'Pengembang' },
+              ].map(({ id, label }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => quickSwitchDemoRole(id)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
+                  className={`px-2.5 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
                     activeRole === id
-                      ? 'bg-amber-400 text-emerald-950'
-                      : 'bg-white/10 text-emerald-100 hover:bg-white/20'
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100'
                   }`}
                 >
-                  <Icon className="w-3 h-3" />
-                  <span>{label}</span>
+                  {label}
                 </button>
               ))}
               <button
                 type="button"
                 onClick={onOpenTeamAuth}
-                className="px-2.5 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-amber-200 font-semibold cursor-pointer"
+                className="px-2.5 py-0.5 rounded-md border border-zinc-200 bg-white text-zinc-600 hover:text-zinc-900 cursor-pointer"
               >
                 Login PIN
               </button>

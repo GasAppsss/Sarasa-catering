@@ -29,17 +29,17 @@ function applyThemeToDocument(themeTokens) {
   const root = document.documentElement;
   root.style.setProperty('--sc-primary', themeTokens.primary || '#064E3B');
   root.style.setProperty('--sc-primary-rgb', hexToRgbTriplet(themeTokens.primary || '#064E3B'));
-  root.style.setProperty('--sc-primary-dark', themeTokens.primaryDark || '#043927');
-  root.style.setProperty('--sc-primary-dark-rgb', hexToRgbTriplet(themeTokens.primaryDark || '#043927'));
-  root.style.setProperty('--sc-accent', themeTokens.accent || '#F59E0B');
-  root.style.setProperty('--sc-accent-rgb', hexToRgbTriplet(themeTokens.accent || '#F59E0B'));
-  root.style.setProperty('--sc-bg', themeTokens.background || '#F5F3EE');
-  root.style.setProperty('--sc-bg-rgb', hexToRgbTriplet(themeTokens.background || '#F5F3EE'));
+  root.style.setProperty('--sc-primary-dark', themeTokens.primaryDark || '#052E23');
+  root.style.setProperty('--sc-primary-dark-rgb', hexToRgbTriplet(themeTokens.primaryDark || '#052E23'));
+  root.style.setProperty('--sc-accent', themeTokens.accent || '#D97706');
+  root.style.setProperty('--sc-accent-rgb', hexToRgbTriplet(themeTokens.accent || '#D97706'));
+  root.style.setProperty('--sc-bg', themeTokens.background || '#FAFAFA');
+  root.style.setProperty('--sc-bg-rgb', hexToRgbTriplet(themeTokens.background || '#FAFAFA'));
   root.style.setProperty('--sc-surface', themeTokens.surface || '#FFFFFF');
   root.style.setProperty('--sc-surface-rgb', hexToRgbTriplet(themeTokens.surface || '#FFFFFF'));
 
-  const radiusMap = { sharp: '0.5rem', rounded: '1.25rem', pill: '1.75rem' };
-  root.style.setProperty('--sc-radius', radiusMap[themeTokens.radiusScale] || '1.25rem');
+  const radiusMap = { sharp: '0.5rem', rounded: '1rem', pill: '1.5rem' };
+  root.style.setProperty('--sc-radius', radiusMap[themeTokens.radiusScale] || '1rem');
   root.setAttribute('data-reduce-motion', themeTokens.reduceMotion ? 'true' : 'false');
 }
 

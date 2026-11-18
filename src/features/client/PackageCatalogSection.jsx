@@ -1,11 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Search, ShoppingBag } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatRupiah } from '../../utils/format.js';
 import { TopDownPlateSVG } from '../../components/ui/PlateIllustration.jsx';
-import { Reveal } from '../../components/ui/Reveal.jsx';
 
-export function PackageCatalogSection({ onSelectPackageForBooking }) {
+export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailDrawer }) {
   const { packages, config } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [query, setQuery] = useState('');
@@ -30,113 +29,103 @@ export function PackageCatalogSection({ onSelectPackageForBooking }) {
   }, [activePackages, query, selectedCategory]);
 
   return (
-    <section id="catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
-      <Reveal>
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-6">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full">
-              Menu &amp; Spesifikasi Lengkap
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-dark mt-2">
-              Katalog Paket Catering Pilihan
-            </h2>
-            <p className="text-sm text-stone-600 mt-1">
-              Lengkap dengan estimasi gramasi, perlengkapan saji, dan catatan alergen per paket.
-            </p>
-          </div>
-
-          {config?.featureFlags?.enableCatalogFilter !== false && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative">
-                <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Cari menu, rendang, tumpeng..."
-                  className="pl-9 pr-4 py-2 rounded-xl border border-stone-300 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800"
-                />
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      selectedCategory === cat
-                        ? 'bg-brand-dark text-amber-300 shadow-sm'
-                        : 'bg-white border border-stone-200 text-stone-600 hover:border-emerald-700'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+    <section id="catalog-section" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">
+            Katalog Paket Catering Pilihan
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            Klik detail untuk melihat daftar lengkap lauk, perlengkapan saji, dan catatan alergen.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((pkg) => (
-            <div
-              key={pkg.id}
-              className="bg-white rounded-[var(--sc-radius)] border border-stone-200 p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between gap-4"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <TopDownPlateSVG styleType={pkg.plateStyle} size="small" />
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900">
-                        {pkg.category}
-                      </span>
-                      <h3 className="font-extrabold text-base text-brand-dark mt-1">{pkg.name}</h3>
-                    </div>
-                  </div>
-                </div>
+        {config?.featureFlags?.enableCatalogFilter !== false && (
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="relative">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cari paket atau menu..."
+                className="w-full sm:w-52 pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-800"
+              />
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
-                {pkg.servingNote && <p className="text-xs font-semibold text-amber-800">{pkg.servingNote}</p>}
-
-                <ul className="space-y-1 text-xs text-stone-600">
-                  {(pkg.items || []).slice(0, 4).map((item) => (
-                    <li key={item} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                  {(pkg.items?.length || 0) > 4 && (
-                    <li className="text-[11px] font-semibold text-stone-400 pl-5">
-                      +{pkg.items.length - 4} hidangan pelengkap lainnya
-                    </li>
-                  )}
-                </ul>
-
-                {pkg.allergens?.length > 0 && (
-                  <p className="text-[11px] text-stone-500">
-                    <strong className="text-stone-700">Alergen:</strong> {pkg.allergens.join(', ')}
-                  </p>
-                )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filtered.map((pkg) => (
+          <article
+            key={pkg.id}
+            className="bg-white rounded-2xl border border-zinc-200 p-5 hover:border-zinc-300 hover:shadow-sm transition-all flex flex-col justify-between gap-4"
+          >
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <TopDownPlateSVG styleType={pkg.plateStyle} size="small" />
+                <span className="text-[11px] font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-0.5 rounded-full">
+                  {pkg.category}
+                </span>
               </div>
 
-              <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-base font-black text-brand-dark">{formatRupiah(pkg.price)}<span className="text-[11px] font-normal text-stone-500">/pax</span></p>
-                  <p className="text-[11px] text-stone-500">Min. {pkg.minOrder} pax</p>
-                </div>
+              <div>
+                <h3 className="font-bold text-base text-zinc-900">{pkg.name}</h3>
+                <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">{pkg.servingNote}</p>
+              </div>
+
+              <p className="text-xs text-zinc-600 line-clamp-2 leading-relaxed">
+                {(pkg.items || []).slice(0, 3).join(' · ')}
+                {(pkg.items?.length || 0) > 3 ? ` · +${pkg.items.length - 3} lainnya` : ''}
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-100 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-base font-extrabold text-zinc-900 tabular-nums">
+                  {formatRupiah(pkg.price)}
+                  <span className="text-[11px] font-normal text-zinc-500">/pax</span>
+                </p>
+                <p className="text-[11px] text-zinc-400">Min. {pkg.minOrder} pax</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onOpenDetailDrawer(pkg)}
+                  className="inline-flex items-center gap-0.5 px-3 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 cursor-pointer"
+                >
+                  <span>Detail</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => onSelectPackageForBooking(pkg)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-dark hover:opacity-95 text-amber-300 font-bold text-xs cursor-pointer"
+                  className="px-3.5 py-2 rounded-lg bg-brand-primary hover:bg-brand-dark text-white text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>Pilih Paket</span>
+                  Pilih
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      </Reveal>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
