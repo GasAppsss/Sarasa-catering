@@ -41,7 +41,7 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
         </div>
 
         {config?.featureFlags?.enableCatalogFilter !== false && (
-          <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="flex flex-col sm:flex-row gap-2.5 min-w-0">
             <div className="relative">
               <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -52,7 +52,7 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                 className="w-full sm:w-52 pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-800"
               />
             </div>
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            <div className="flex flex-wrap gap-1.5 min-w-0">
               {categories.map((cat) => (
                 <button
                   key={cat}

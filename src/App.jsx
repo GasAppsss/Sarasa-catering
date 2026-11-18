@@ -140,7 +140,7 @@ function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg text-zinc-800 font-sans selection:bg-emerald-100 selection:text-emerald-950 flex flex-col justify-between">
+    <div className="min-h-screen overflow-x-clip bg-brand-bg text-zinc-800 font-sans selection:bg-emerald-100 selection:text-emerald-950 flex flex-col justify-between">
       <div>
         <Navbar
           onOpenTeamAuth={() =>
