@@ -37,16 +37,16 @@ export function Navbar({ onOpenTeamAuth }) {
 
   return (
     <header className="no-print sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-zinc-200/80">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
         <button
           type="button"
           onClick={() => navigateView('showcase')}
-          className="flex items-center gap-2.5 text-left cursor-pointer group shrink-0"
+          className="flex items-center gap-2 sm:gap-2.5 text-left cursor-pointer group min-w-0"
         >
-          <span className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center transition-transform group-hover:scale-105">
+          <span className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
             <Utensils className="w-4 h-4" />
           </span>
-          <span className="font-bold text-sm sm:text-base tracking-tight text-zinc-900">
+          <span className="font-bold text-sm sm:text-base tracking-tight text-zinc-900 truncate">
             {brand?.shortName || 'SAJIAN'}{' '}
             <span className="font-medium text-zinc-500">{brand?.subName || 'CATERING'}</span>
           </span>

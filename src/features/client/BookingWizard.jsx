@@ -165,7 +165,7 @@ export function BookingWizard({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {WIZARD_STEPS.map((s) => {
             const active = step === s.id;
             const passed = step > s.id;
@@ -191,7 +191,7 @@ export function BookingWizard({
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-zinc-200 p-6 space-y-6">
+        <div className="lg:col-span-7 min-w-0 bg-white rounded-2xl border border-zinc-200 p-5 sm:p-6 space-y-6">
           {step === 1 && (
             <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -502,7 +502,7 @@ export function BookingWizard({
           )}
         </div>
 
-        <aside className="lg:col-span-5 lg:sticky lg:top-24 bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
+        <aside className="lg:col-span-5 min-w-0 lg:sticky lg:top-24 bg-white rounded-2xl border border-zinc-200 p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <h3 className="font-bold text-sm text-zinc-900">Ringkasan Biaya</h3>
             <span className="text-[11px] font-medium text-zinc-500">Estimasi Transparan</span>
