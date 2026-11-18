@@ -1,0 +1,2463 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Utensils,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  ShieldCheck,
+  ChefHat,
+  Truck,
+  FileText,
+  Plus,
+  Search,
+  Users,
+  Wallet,
+  AlertCircle,
+  Sparkles,
+  MapPin,
+  Phone,
+  Copy,
+  Check,
+  Printer,
+  X,
+  ArrowRight,
+  Package,
+  TrendingUp,
+  RotateCcw,
+  MessageCircle,
+  ChevronRight,
+  ChevronLeft,
+  Store,
+  LayoutDashboard,
+  ShoppingBag,
+  Play,
+  ThumbsUp,
+  ThumbsDown,
+  Star,
+  Share2,
+  Award,
+  Flame,
+  Eye
+} from 'lucide-react';
+
+// ============================================================================
+// 1. UTILITAS FORMATTER & TANGGAL
+// ============================================================================
+
+const formatRupiah = (amount) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount || 0);
+};
+
+const getDateOffset = (daysOffset = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + daysOffset);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatTanggalIndo = (dateStr, includeDay = true) => {
+  if (!dateStr) return '-';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day);
+  const options = includeDay
+    ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+    : { day: 'numeric', month: 'short', year: 'numeric' };
+  return dateObj.toLocaleDateString('id-ID', options);
+};
+
+const getDispatchTime = (arrivalTime) => {
+  if (!arrivalTime || !arrivalTime.includes(':')) return '-';
+  const [h, m] = arrivalTime.split(':').map(Number);
+  const dispatchHour = (h - 1 + 24) % 24;
+  return `${String(dispatchHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+/**
+ * Memisahkan nama paket menjadi 2 baris untuk efek Staggered Split Typography
+ */
+const getSplitTitle = (pkg) => {
+  if (pkg.titleLine1 && pkg.titleLine2) {
+    return { line1: pkg.titleLine1, line2: pkg.titleLine2 };
+  }
+  const words = (pkg.name || 'SAJIAN NUSANTARA').toUpperCase().split(' ');
+  if (words.length <= 1) {
+    return { line1: 'PAKET SPESIAL', line2: words[0] };
+  }
+  const half = Math.ceil(words.length / 2);
+  return {
+    line1: words.slice(0, half).join(' '),
+    line2: words.slice(half).join(' ')
+  };
+};
+
+// ============================================================================
+// 2. DATA AWAL (SHOWCASE PAKET, PONDOKAN/STALL, DAN PESANAN)
+// ============================================================================
+
+const INITIAL_PACKAGES = [
+  {
+    id: 'pkg-1',
+    name: 'Royal Buffet Nusantara',
+    titleLine1: 'ROYAL BUFFET',
+    titleLine2: 'NUSANTARA',
+    rankLabel: '#1 Paket Paling Dicintai',
+    category: 'Prasmanan',
+    plateStyle: 'buffet',
+    ribbonColor: 'from-emerald-900/15 via-amber-500/20 to-emerald-800/5',
+    accentTint: '#064E3B',
+    price: 68000,
+    hpp: 38000,
+    minOrder: 50,
+    rating: '4.9',
+    likes: 184,
+    chefName: 'Chef Feny Maharani',
+    chefTitle: 'Executive Nusantara Culinary Director',
+    chefQuote:
+      'Paduan rempah autentik rendang sapi pilihan dan ayam bakar madu yang dimasak perlahan selama 6 jam, menghadirkan kemewahan jamuan keraton di setiap suapan tamu Anda.',
+    videoDuration: '02:15',
+    videoHighlights: [
+      'Chafing Dish Kuningan & Pemanas Roll-Top Gold',
+      'Meja Prasmanan Dekorasi Kain Zamrud & Bunga Segar',
+      '2 Pramusaji Berseragam Batik Sarasa per 100 Pax'
+    ],
+    items: [
+      'Nasi Putih Pandan Wangi Organik',
+      'Rendang Daging Sapi Sengkel Empuk',
+      'Ayam Bakar Madu Rempah Nusantara',
+      'Sambal Goreng Kentang Ati Sapi',
+      'Capcay Seafood Kuah Kental Segar',
+      'Kerupuk Udang Sidoarjo & Sambal Bajak',
+      'Es Buah Cocktail Nata de Coco'
+    ]
+  },
+  {
+    id: 'pkg-2',
+    name: 'Nasi Kotak Executive',
+    titleLine1: 'NASI KOTAK',
+    titleLine2: 'EXECUTIVE',
+    rankLabel: '#2 Favorit Acara Korporat',
+    category: 'Nasi Box',
+    plateStyle: 'bento',
+    ribbonColor: 'from-amber-500/25 via-emerald-800/15 to-amber-200/10',
+    accentTint: '#92400E',
+    price: 42000,
+    hpp: 23500,
+    minOrder: 25,
+    rating: '4.8',
+    likes: 142,
+    chefName: 'Chef Adin Salman',
+    chefTitle: 'Head of Bento & Corporate Gastronomy',
+    chefQuote:
+      'Kemasan premium bersekat higienis dengan komposisi gizi seimbang. Didesain khusus agar suhu, aroma pandan, dan tekstur renyah lauk tetap sempurna saat dibuka oleh kolega penting Anda.',
+    videoDuration: '01:45',
+    videoHighlights: [
+      'Kotak Hardbox Eksklusif Motif Emboss Emas',
+      'Sendok Garpu Biodegradable + Tisu Basah Antiseptik',
+      'Segel Keamanan Waktu Masak (Quality Time Seal)'
+    ],
+    items: [
+      'Nasi Putih Pulen Tabur Bawang Goreng',
+      'Empal Gepuk Daging Sapi Serundeng',
+      'Ayam Goreng Lengkuas Gurih',
+      'Tumis Buncis Putren Udang Kupas',
+      'Telur Pindang Marmer & Sambal Terasi',
+      'Pisang Cavendish & Air Mineral 330ml'
+    ]
+  },
+  {
+    id: 'pkg-3',
+    name: 'Tumpeng Agung Keraton',
+    titleLine1: 'TUMPENG AGUNG',
+    titleLine2: 'KERATON',
+    rankLabel: '#3 Ikon Syukuran & Peresmian',
+    category: 'Tumpeng',
+    plateStyle: 'tumpeng',
+    ribbonColor: 'from-amber-400/30 via-amber-600/15 to-emerald-900/10',
+    accentTint: '#B45309',
+    price: 48000,
+    hpp: 26000,
+    minOrder: 25,
+    rating: '4.9',
+    likes: 219,
+    chefName: 'Chef Reza Prakoso',
+    chefTitle: 'Traditional Heritage & Carving Specialist',
+    chefQuote:
+      'Simbol rasa syukur tertinggi dengan nasi kuning kunyit peras asli dan santan kental. Dihiasi ukiran sayuran segar (garnish art) buatan tangan yang memukau untuk momen potong tumpeng.',
+    videoDuration: '02:30',
+    videoHighlights: [
+      'Tampah Bambu Anyam Eksklusif Berhias Daun Pisang Raja',
+      'Ukiran Garnish Wortel, Lobak & Cabai Merah (Food Carving)',
+      'Gratis Pisau Potong Tumpeng Berpita Emas & Piring Saji'
+    ],
+    items: [
+      'Nasi Kuning Gurih Rempah Daun Jeruk',
+      'Ayam Ingkung Bakar Bumbu Rujak',
+      'Urap Sayuran Kelapa Muda Sangrai',
+      'Perkedel Kentang Daging Cincang',
+      'Kering Tempe Kacang Teri Medan',
+      'Telur Dadar Rawis & Sambal Goreng Ati',
+      'Lalapan Segar & Sambal Bawang'
+    ]
+  },
+  {
+    id: 'pkg-4',
+    name: 'Gubukan Kambing Guling',
+    titleLine1: 'GUBUKAN SPESIAL',
+    titleLine2: 'KAMBING GULING',
+    rankLabel: '#4 Primadona Live Cooking',
+    category: 'Prasmanan',
+    plateStyle: 'roast',
+    ribbonColor: 'from-emerald-800/20 via-teal-700/15 to-amber-500/20',
+    accentTint: '#047857',
+    price: 58000,
+    hpp: 33000,
+    minOrder: 40,
+    rating: '4.7',
+    likes: 165,
+    chefName: 'Chef K Semy',
+    chefTitle: 'Master Grill & Live Stall Specialist',
+    chefQuote:
+      'Daging kambing muda pilihan yang dimarinasi 12 macam rempah Nusantara dan dipanggang langsung di lokasi acara. Bebas bau prengus, bertekstur lembut, dan berpadu sempurna dengan saus kecap lada hitam.',
+    videoDuration: '01:55',
+    videoHighlights: [
+      'Pemanggang Berputar Stainless Steel + Chef Live Carving',
+      'Pendamping Lontong Daun Pisang & Gulai Kambing Hangat',
+      'Aroma Bakaran Rempah Menggugah Selera Tamu Undangan'
+    ],
+    items: [
+      'Irisan Daging Kambing Guling Muda Panggang',
+      'Lontong Daun Pisang Pulen Hangat',
+      'Kuah Gulai Rempah Kental Pendamping',
+      'Saus Kecap Manis Bawang Merah & Cabai Rawit',
+      'Acar Timun Nanas Wortel Segar',
+      'Kerupuk Emping Melinjo Gurih',
+      'Es Jeruk Kelapa Muda Segar'
+    ]
+  }
+];
+
+const STALL_OPTIONS = [
+  {
+    id: 'stall-zuppa',
+    name: 'Zuppa Soup Creamy Puff',
+    price: 22000,
+    description: 'Sup krim ayam jamur jagung hangat berlapis puff pastry renyah keemasan.'
+  },
+  {
+    id: 'stall-sate',
+    name: 'Sate Ayam Madura & Lontong',
+    price: 20000,
+    description: '5 tusuk sate ayam dada/paha bumbu kacang sangrai kental & lontong daun.'
+  },
+  {
+    id: 'stall-kambing',
+    name: 'Pondokan Kambing Guling Live',
+    price: 35000,
+    description: 'Irisan kambing guling muda panggang di tempat lengkap dengan lontong & saus.'
+  },
+  {
+    id: 'stall-gelato',
+    name: 'Royal Gelato & Sorbet Bar',
+    price: 18000,
+    description: 'Pilihan gelato vanilla bean, Belgian chocolate, dan mango sorbet segar.'
+  }
+];
+
+const getInitialOrders = () => {
+  const dateCluster = getDateOffset(3);
+  const dateSecond = getDateOffset(5);
+  const dateThird = getDateOffset(8);
+
+  return [
+    {
+      id: 'SRS-2026-001',
+      customerName: 'Ibu Ratna Kusuma',
+      whatsapp: '0812-8890-1122',
+      eventDate: dateCluster,
+      eventTime: '11:30',
+      address: 'Jl. Melati Indah No. 45, Kebayoran Baru, Jakarta Selatan',
+      notes: 'Mohon meja prasmanan disiapkan bernuansa hijau zamrud & emas. Sambal dipisah.',
+      packageId: 'pkg-1',
+      packageName: 'Royal Buffet Nusantara',
+      packagePrice: 68000,
+      pax: 120,
+      stalls: [
+        { id: 'stall-zuppa', name: 'Zuppa Soup Creamy Puff', price: 22000, pax: 100 },
+        { id: 'stall-gelato', name: 'Royal Gelato & Sorbet Bar', price: 18000, pax: 100 }
+      ],
+      totalAmount: 120 * 68000 + 100 * 22000 + 100 * 18000,
+      dpAmount: 6080000,
+      status: 'Diproses Dapur',
+      createdAt: getDateOffset(-2)
+    },
+    {
+      id: 'SRS-2026-002',
+      customerName: 'Bapak Hendra Wijaya (PT Maju Bersama)',
+      whatsapp: '0811-2345-6789',
+      eventDate: dateCluster,
+      eventTime: '12:00',
+      address: 'Gedung Graha Kirana Lt. 8, Jl. Yos Sudarso Kav. 88, Jakarta Utara',
+      notes: 'Kirim ke lobi loading dock, hubungi resepsionis Rina setibanya di lokasi.',
+      packageId: 'pkg-2',
+      packageName: 'Nasi Kotak Executive',
+      packagePrice: 42000,
+      pax: 80,
+      stalls: [],
+      totalAmount: 80 * 42000,
+      dpAmount: 1680000,
+      status: 'DP Lunas',
+      createdAt: getDateOffset(-1)
+    },
+    {
+      id: 'SRS-2026-003',
+      customerName: 'dr. Amanda Putri',
+      whatsapp: '0856-7712-9034',
+      eventDate: dateSecond,
+      eventTime: '18:30',
+      address: 'Cluster Green Mansion Blok C2 No. 10, Bintaro Sektor 7',
+      notes: 'Acara syukuran rumah baru, tamu mulai hadir jam 19.00 WIB.',
+      packageId: 'pkg-3',
+      packageName: 'Tumpeng Agung Keraton',
+      packagePrice: 48000,
+      pax: 60,
+      stalls: [
+        { id: 'stall-sate', name: 'Sate Ayam Madura & Lontong', price: 20000, pax: 60 }
+      ],
+      totalAmount: 60 * 48000 + 60 * 20000,
+      dpAmount: 2040000,
+      status: 'Menunggu DP',
+      createdAt: getDateOffset(0)
+    },
+    {
+      id: 'SRS-2026-004',
+      customerName: 'Bapak Dimas Pratama',
+      whatsapp: '0813-9900-4455',
+      eventDate: dateThird,
+      eventTime: '10:00',
+      address: 'Jl. Wijaya Kusuma No. 19, Pondok Indah, Jakarta Selatan',
+      notes: 'Mohon live stall siap dipanggang 45 menit sebelum acara.',
+      packageId: 'pkg-4',
+      packageName: 'Gubukan Kambing Guling',
+      packagePrice: 58000,
+      pax: 50,
+      stalls: [],
+      totalAmount: 50 * 58000,
+      dpAmount: 1450000,
+      status: 'Dikirim',
+      createdAt: getDateOffset(0)
+    }
+  ];
+};
+
+// ============================================================================
+// 3. ILUSTRASI PIRING TOP-DOWN REALISTIS (UNTUK ANIMASI ARC SHOWCASE)
+// ============================================================================
+
+const TopDownPlateSVG = ({ styleType = 'buffet', size = 'large' }) => {
+  const dim = size === 'large' ? 'w-64 h-64 sm:w-80 sm:h-80 lg:w-[340px] lg:h-[340px]' : 'w-14 h-14';
+
+  return (
+    <div className={`relative select-none ${dim} flex items-center justify-center`}>
+      {/* Bayangan lembut tiga dimensi di bawah piring */}
+      <div
+        className={`absolute rounded-full bg-stone-900/20 blur-xl ${
+          size === 'large' ? 'inset-4 translate-y-5 -translate-x-2' : 'inset-1 translate-y-1.5'
+        }`}
+      />
+
+      <svg viewBox="0 0 300 300" className="w-full h-full relative z-10 overflow-visible">
+        <defs>
+          {/* Gradasi Piring Keramik Gading & Lis Emas */}
+          <radialGradient id="plateRim" cx="45%" cy="40%" r="55%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="72%" stopColor="#F5F3EE" />
+            <stop offset="92%" stopColor="#E4DFD3" />
+            <stop offset="100%" stopColor="#D0C9B8" />
+          </radialGradient>
+          <radialGradient id="plateInner" cx="50%" cy="45%" r="50%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="85%" stopColor="#FAF8F5" />
+            <stop offset="100%" stopColor="#EAE5D9" />
+          </radialGradient>
+          <linearGradient id="goldTrim" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FDE68A" />
+            <stop offset="50%" stopColor="#D97706" />
+            <stop offset="100%" stopColor="#92400E" />
+          </linearGradient>
+          <radialGradient id="tumpengCone" cx="45%" cy="45%" r="50%">
+            <stop offset="0%" stopColor="#FEF08A" />
+            <stop offset="60%" stopColor="#FACC15" />
+            <stop offset="100%" stopColor="#CA8A04" />
+          </radialGradient>
+        </defs>
+
+        {/* Badan Piring Utama */}
+        <circle cx="150" cy="150" r="142" fill="url(#plateRim)" />
+        {/* Lis Emas Tipis di Tepi Piring */}
+        <circle
+          cx="150"
+          cy="150"
+          r="136"
+          fill="none"
+          stroke="url(#goldTrim)"
+          strokeWidth="2.5"
+          opacity="0.75"
+        />
+        {/* Cekungan Dalam Piring */}
+        <circle
+          cx="150"
+          cy="150"
+          r="108"
+          fill="url(#plateInner)"
+          stroke="#E5E0D5"
+          strokeWidth="2"
+        />
+
+        {/* ISI HIDANGAN BERDASARKAN TIPE PAKET */}
+        {styleType === 'buffet' && (
+          <g>
+            {/* Daun Pisang Alas */}
+            <path
+              d="M 65 140 Q 95 70 175 75 Q 230 105 220 175 Q 165 235 85 205 Z"
+              fill="#065F46"
+              opacity="0.9"
+            />
+            {/* Nasi Pandan Wangi */}
+            <circle cx="122" cy="125" r="42" fill="#FFFDF9" stroke="#E7E5E4" strokeWidth="2" />
+            <circle cx="116" cy="120" r="3" fill="#047857" />
+            <circle cx="126" cy="126" r="2.5" fill="#047857" />
+            <path d="M 114 114 Q 122 105 130 116" stroke="#059669" strokeWidth="3" fill="none" strokeLinecap="round" />
+
+            {/* Rendang Daging Sapi & Bumbu Rempah */}
+            <g transform="translate(155, 92)">
+              <path d="M 0 18 Q 20 -5 45 10 Q 55 32 32 46 Q 8 48 0 18 Z" fill="#451A03" />
+              <path d="M 6 20 Q 22 4 38 14 Q 44 28 28 38 Z" fill="#78350F" />
+              <path d="M -8 40 Q 12 25 34 38 Q 42 58 18 65 Q -5 62 -8 40 Z" fill="#571D06" />
+              {/* Taburan Serundeng & Cabai */}
+              <circle cx="20" cy="24" r="2" fill="#F59E0B" />
+              <circle cx="28" cy="30" r="1.8" fill="#EF4444" />
+              <circle cx="14" cy="48" r="2.2" fill="#F59E0B" />
+            </g>
+
+            {/* Ayam Bakar Madu & Lalapan */}
+            <g transform="translate(88, 162)">
+              <path d="M 0 15 Q 35 -5 72 12 Q 82 36 52 50 Q 15 48 0 15 Z" fill="#9A3412" />
+              <path d="M 10 18 Q 38 5 62 18 Q 66 32 45 40 Z" fill="#C2410C" />
+              {/* Garis Panggangan */}
+              <line x1="20" y1="14" x2="30" y2="38" stroke="#431407" strokeWidth="3" strokeLinecap="round" />
+              <line x1="36" y1="12" x2="46" y2="38" stroke="#431407" strokeWidth="3" strokeLinecap="round" />
+              <line x1="52" y1="15" x2="58" y2="34" stroke="#431407" strokeWidth="3" strokeLinecap="round" />
+            </g>
+
+            {/* Tomat Ceri & Selada Segar */}
+            <circle cx="195" cy="182" r="11" fill="#DC2626" />
+            <circle cx="192" cy="179" r="3" fill="#FCA5A5" />
+            <circle cx="176" cy="198" r="10" fill="#EF4444" />
+            <circle cx="173" cy="195" r="2.5" fill="#FCA5A5" />
+            <circle cx="210" cy="164" r="9" fill="#16A34A" />
+          </g>
+        )}
+
+        {styleType === 'bento' && (
+          <g>
+            {/* Salad Sayuran Hijau & Kol Ungu */}
+            <circle cx="115" cy="110" r="34" fill="#15803D" />
+            <circle cx="135" cy="95" r="26" fill="#16A34A" />
+            <circle cx="95" cy="128" r="25" fill="#22C55E" />
+            {/* Taburan Wijen & Keju/Telur */}
+            <circle cx="110" cy="102" r="4" fill="#FEF08A" />
+            <circle cx="128" cy="112" r="3.5" fill="#FFFFFF" />
+            <circle cx="102" cy="122" r="4" fill="#FDE047" />
+            <circle cx="138" cy="94" r="3" fill="#EF4444" />
+
+            {/* Fillet Ayam / Ikan Panggang Emas */}
+            <rect
+              x="110"
+              y="112"
+              width="106"
+              height="64"
+              rx="14"
+              transform="rotate(14 160 144)"
+              fill="#F59E0B"
+              stroke="#B45309"
+              strokeWidth="2"
+            />
+            <rect
+              x="118"
+              y="118"
+              width="90"
+              height="50"
+              rx="10"
+              transform="rotate(14 160 144)"
+              fill="#FBBF24"
+            />
+            {/* Daun Parsley di Atas Fillet */}
+            <circle cx="162" cy="142" r="7" fill="#15803D" />
+            <circle cx="172" cy="148" r="5" fill="#16A34A" />
+
+            {/* Kentang / Mie Goreng Renyah */}
+            <g stroke="#D97706" strokeWidth="3.5" strokeLinecap="round" fill="none">
+              <path d="M 92 175 Q 115 162 138 184" />
+              <path d="M 102 188 Q 130 172 152 196" />
+              <path d="M 88 195 Q 118 188 142 208" />
+              <path d="M 115 168 Q 145 182 162 175" />
+              <path d="M 98 206 Q 128 198 156 188" />
+            </g>
+          </g>
+        )}
+
+        {styleType === 'tumpeng' && (
+          <g>
+            {/* Alas Daun Pisang Bundar */}
+            <circle cx="150" cy="150" r="96" fill="#064E3B" />
+            <circle cx="150" cy="150" r="88" fill="#047857" stroke="#F59E0B" strokeWidth="2" strokeDasharray="8 4" />
+
+            {/* Lauk Keliling Tumpeng */}
+            {/* Urap Sayur */}
+            <circle cx="95" cy="110" r="20" fill="#16A34A" />
+            <circle cx="95" cy="110" r="12" fill="#ECFCCB" opacity="0.8" />
+            {/* Ayam Bakar */}
+            <ellipse cx="204" cy="112" rx="22" ry="15" transform="rotate(25 204 112)" fill="#9A3412" />
+            {/* Sambal Goreng Kentang */}
+            <circle cx="206" cy="184" r="19" fill="#DC2626" />
+            <rect x="198" y="176" width="8" height="8" rx="2" fill="#FBBF24" />
+            <rect x="208" y="184" width="8" height="8" rx="2" fill="#FBBF24" />
+            {/* Perkedel & Telur Rawis */}
+            <circle cx="94" cy="186" r="18" fill="#D97706" />
+            <circle cx="150" cy="216" r="16" fill="#FDE047" />
+
+            {/* Kerucut Nasi Kuning di Tengah */}
+            <circle cx="150" cy="150" r="52" fill="url(#tumpengCone)" stroke="#B45309" strokeWidth="2" />
+            <circle cx="144" cy="144" r="30" fill="#FEF08A" opacity="0.6" />
+            {/* Puncak Hiasan Cabai Merah & Daun Mint */}
+            <circle cx="150" cy="150" r="10" fill="#DC2626" />
+            <circle cx="142" cy="145" r="5" fill="#15803D" />
+          </g>
+        )}
+
+        {styleType === 'roast' && (
+          <g>
+            {/* Saus Gulai / Hummus Rempah Melingkar */}
+            <circle cx="150" cy="150" r="88" fill="#FDE68A" />
+            <path
+              d="M 100 135 Q 145 90 195 130 Q 210 180 155 205 Q 95 195 100 135 Z"
+              fill="#F59E0B"
+              opacity="0.45"
+            />
+            {/* Lelehan Minyak Rempah Emas */}
+            <path
+              d="M 118 145 A 34 34 0 1 1 182 155"
+              stroke="#B45309"
+              strokeWidth="6"
+              fill="none"
+              strokeLinecap="round"
+            />
+
+            {/* Potongan Daging Kambing Guling Panggang */}
+            <g transform="translate(115, 110)">
+              <rect x="0" y="12" width="38" height="24" rx="8" transform="rotate(-12)" fill="#78350F" />
+              <rect x="26" y="4" width="42" height="26" rx="8" transform="rotate(15)" fill="#451A03" />
+              <rect x="10" y="34" width="44" height="25" rx="8" transform="rotate(6)" fill="#92400E" />
+              {/* Taburan Bawang Goreng & Cabai */}
+              <circle cx="28" cy="26" r="3.5" fill="#EF4444" />
+              <circle cx="42" cy="34" r="4" fill="#16A34A" />
+              <circle cx="20" cy="40" r="3" fill="#FBBF24" />
+            </g>
+
+            {/* Lontong Daun Pisang */}
+            <circle cx="96" cy="165" r="14" fill="#ECFCCB" stroke="#15803D" strokeWidth="4" />
+            <circle cx="198" cy="168" r="14" fill="#ECFCCB" stroke="#15803D" strokeWidth="4" />
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+};
+
+// ============================================================================
+// 4. KOMPONEN UTAMA APLIKASI SARASA CATERING
+// ============================================================================
+
+export default function App() {
+  // Mode tampilan utama: 'customer' | 'admin'
+  const [activeMode, setActiveMode] = useState('customer');
+
+  // State Paket Menu (tersinkronisasi dengan localStorage)
+  const [packages, setPackages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sarasa_catering_packages_v2');
+      return saved ? JSON.parse(saved) : INITIAL_PACKAGES;
+    } catch {
+      return INITIAL_PACKAGES;
+    }
+  });
+
+  // State Daftar Pesanan (tersinkronisasi dengan localStorage)
+  const [orders, setOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sarasa_catering_orders_v2');
+      return saved ? JSON.parse(saved) : getInitialOrders();
+    } catch {
+      return getInitialOrders();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sarasa_catering_packages_v2', JSON.stringify(packages));
+    } catch (e) {
+      console.error('Gagal menyimpan paket', e);
+    }
+  }, [packages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sarasa_catering_orders_v2', JSON.stringify(orders));
+    } catch (e) {
+      console.error('Gagal menyimpan pesanan', e);
+    }
+  }, [orders]);
+
+  // Toast notifikasi global
+  const [toastMessage, setToastMessage] = useState(null);
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 3500);
+  };
+
+  // Hitung jumlah pesanan aktif
+  const activeOrdersCount = useMemo(
+    () => orders.filter((o) => o.status !== 'Selesai').length,
+    [orders]
+  );
+
+  // Kalender ketersediaan 14 hari ke depan
+  const calendarDates = useMemo(() => {
+    const manualFullOffsets = [2, 6];
+    const result = [];
+
+    for (let i = 1; i <= 14; i++) {
+      const dateStr = getDateOffset(i);
+      const ordersOnDate = orders.filter((o) => o.eventDate === dateStr);
+      const bookedPax = ordersOnDate.reduce((sum, o) => sum + o.pax, 0);
+
+      let status = 'Tersedia';
+      if (manualFullOffsets.includes(i) || bookedPax >= 400) {
+        status = 'Penuh';
+      } else if (bookedPax > 0 || i === 4 || i === 10) {
+        status = 'Slot Terbatas';
+      }
+
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dObj = new Date(y, m - 1, d);
+      result.push({
+        dateStr,
+        dayName: dObj.toLocaleDateString('id-ID', { weekday: 'short' }),
+        dayNum: d,
+        monthShort: dObj.toLocaleDateString('id-ID', { month: 'short' }),
+        status,
+        bookedPax
+      });
+    }
+    return result;
+  }, [orders]);
+
+  // Handler tambah Like pada paket di Showcase
+  const handleToggleLikePackage = (pkgId) => {
+    setPackages((prev) =>
+      prev.map((p) =>
+        p.id === pkgId
+          ? {
+              ...p,
+              likes: p.userLiked ? p.likes - 1 : (p.likes || 120) + 1,
+              userLiked: !p.userLiked
+            }
+          : p
+      )
+    );
+  };
+
+  // Handler tambah pesanan baru
+  const handleCreateOrder = (newOrder) => {
+    setOrders((prev) => [newOrder, ...prev]);
+    triggerToast(`Pesanan ${newOrder.id} berhasil masuk ke jadwal dapur Sarasa Catering!`);
+  };
+
+  // Handler ubah status pesanan di Dashboard Admin
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+    );
+    triggerToast(`Status pesanan ${orderId} diperbarui menjadi "${newStatus}"`);
+  };
+
+  // Handler tambah paket baru dari Admin (langsung muncul juga di Carousel Showcase!)
+  const handleAddPackage = (newPkg) => {
+    setPackages((prev) => [...prev, newPkg]);
+    triggerToast(`Paket "${newPkg.name}" berhasil ditambahkan ke Katalog & Showcase!`);
+  };
+
+  // Reset data demo
+  const handleResetDemoData = () => {
+    setPackages(INITIAL_PACKAGES);
+    setOrders(getInitialOrders());
+    localStorage.removeItem('sarasa_catering_packages_v2');
+    localStorage.removeItem('sarasa_catering_orders_v2');
+    triggerToast('Data demo berhasil dikembalikan ke pengaturan awal.');
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F5F3EE] text-stone-800 font-sans selection:bg-amber-200 selection:text-emerald-950">
+      {/* ====================================================================
+          CUSTOM KEYFRAME ANIMATIONS (ARC PLATE, RIBBON SWEEP, STAGGERED TEXT)
+      ==================================================================== */}
+      <style>{`
+        @keyframes plateArcEntry {
+          0% {
+            opacity: 0;
+            transform: translate(190px, -230px) rotate(-135deg) scale(0.72);
+          }
+          60% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 1;
+            transform: translate(0px, 0px) rotate(0deg) scale(1);
+          }
+        }
+
+        @keyframes ribbonArcEntry {
+          0% {
+            opacity: 0;
+            transform: translate(80px, -90px) rotate(-8deg) scale(0.92);
+          }
+          100% {
+            opacity: 1;
+            transform: translate(0px, 0px) rotate(0deg) scale(1);
+          }
+        }
+
+        @keyframes titleLineTopSlide {
+          0% {
+            opacity: 0;
+            transform: translateX(70px);
+            letter-spacing: 0.35em;
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0px);
+            letter-spacing: 0.14em;
+          }
+        }
+
+        @keyframes titleLineBottomSlide {
+          0% {
+            opacity: 0;
+            transform: translateX(-65px) translateY(12px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0px) translateY(0px);
+          }
+        }
+
+        @keyframes rightCardReveal {
+          0% {
+            opacity: 0;
+            transform: translateY(22px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0px) scale(1);
+          }
+        }
+
+        .animate-plate-arc {
+          animation: plateArcEntry 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .animate-ribbon-arc {
+          animation: ribbonArcEntry 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .animate-title-top {
+          animation: titleLineTopSlide 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .animate-title-bottom {
+          animation: titleLineBottomSlide 0.68s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+        }
+
+        .animate-card-reveal {
+          animation: rightCardReveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+        }
+      `}</style>
+
+      {/* ====================================================================
+          TOP NAVIGATION BAR (ELEGANT EMERALD & GOLD SWITCHER)
+      ==================================================================== */}
+      <header className="sticky top-0 z-40 bg-emerald-950/95 backdrop-blur-md text-white shadow-lg border-b border-emerald-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* Brand Logo */}
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md shadow-amber-500/20">
+                <Utensils className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-lg tracking-tight text-white">
+                    SARASA
+                  </span>
+                  <span className="text-amber-400 font-light tracking-widest text-sm">
+                    CATERING
+                  </span>
+                  <span className="hidden md:inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900 text-amber-300 font-semibold border border-amber-500/30">
+                    Royal Heritage
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-300/85">
+                  Interactive Culinary Showcase & Sistem Dapur Terpadu
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mode Switcher Pill */}
+          <div className="flex items-center bg-emerald-900/90 p-1 rounded-xl border border-emerald-700/70 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setActiveMode('customer')}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                activeMode === 'customer'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-emerald-950 shadow-sm font-bold'
+                  : 'text-emerald-200 hover:text-white hover:bg-emerald-800/60'
+              }`}
+            >
+              <Store className="w-4 h-4 shrink-0" />
+              <span>1. Showcase & Order (Customer)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveMode('admin')}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                activeMode === 'admin'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-emerald-950 shadow-sm font-bold'
+                  : 'text-emerald-200 hover:text-white hover:bg-emerald-800/60'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 shrink-0" />
+              <span>2. Dashboard Admin & Dapur</span>
+              <span
+                className={`ml-0.5 px-2 py-0.5 text-xs font-extrabold rounded-full ${
+                  activeMode === 'admin'
+                    ? 'bg-emerald-950 text-amber-400'
+                    : 'bg-amber-500 text-emerald-950'
+                }`}
+              >
+                {activeOrdersCount}
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-emerald-950 text-white px-4 py-3.5 rounded-2xl shadow-2xl border border-amber-400/60 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+          <p className="text-sm font-medium">{toastMessage}</p>
+        </div>
+      )}
+
+      {/* Render Mode Aktif */}
+      {activeMode === 'customer' ? (
+        <CustomerInteractiveExperience
+          packages={packages}
+          orders={orders}
+          calendarDates={calendarDates}
+          onToggleLike={handleToggleLikePackage}
+          onCreateOrder={handleCreateOrder}
+          onSwitchToAdmin={() => setActiveMode('admin')}
+        />
+      ) : (
+        <AdminDashboard
+          orders={orders}
+          packages={packages}
+          onUpdateStatus={handleUpdateOrderStatus}
+          onAddPackage={handleAddPackage}
+          onResetDemo={handleResetDemoData}
+          onSwitchToCustomer={() => setActiveMode('customer')}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// 5. MODE 1: INTERACTIVE HERO SHOWCASE & BOOKING PELANGGAN
+// ============================================================================
+
+function CustomerInteractiveExperience({
+  packages,
+  orders,
+  calendarDates,
+  onToggleLike,
+  onCreateOrder,
+  onSwitchToAdmin
+}) {
+  // Index paket yang sedang tampil di Panggung Showcase
+  const [activeIndex, setActiveIndex] = useState(0);
+  // Key animasi agar setiap pergantian menu memicu ulang keyframe CSS
+  const [animTriggerKey, setAnimTriggerKey] = useState(0);
+  // Tab aktif pada Kartu Kanan: 'overview' | 'ingredients'
+  const [rightCardTab, setRightCardTab] = useState('overview');
+  // Modal Video Penyajian
+  const [videoModalPkg, setVideoModalPkg] = useState(null);
+  // Modal Cek Status Pesanan Pelanggan
+  const [showOrderTracker, setShowOrderTracker] = useState(false);
+  const [trackerSearch, setTrackerSearch] = useState('');
+
+  // Pastikan activeIndex valid
+  const currentShowPkg = packages[activeIndex] || packages[0];
+  const splitTitle = useMemo(() => getSplitTitle(currentShowPkg), [currentShowPkg]);
+
+  // State Form Kalkulator & Pemesanan
+  const [selectedPkgId, setSelectedPkgId] = useState(packages[0]?.id || '');
+  const [pax, setPax] = useState(packages[0]?.minOrder || 50);
+  const [selectedStalls, setSelectedStalls] = useState({});
+
+  const firstAvailableDate =
+    calendarDates.find((d) => d.status !== 'Penuh')?.dateStr || getDateOffset(3);
+
+  const [customerName, setCustomerName] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [eventDate, setEventDate] = useState(firstAvailableDate);
+  const [eventTime, setEventTime] = useState('11:30');
+  const [address, setAddress] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const [formError, setFormError] = useState('');
+  const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const [copiedWa, setCopiedWa] = useState(false);
+
+  // Navigasi Showcase (Panah Kiri / Kanan / Klik Item)
+  const handleSelectShowcaseIndex = (newIdx) => {
+    const total = packages.length;
+    const normalizedIdx = ((newIdx % total) + total) % total;
+    setActiveIndex(normalizedIdx);
+    setAnimTriggerKey((prev) => prev + 1);
+
+    // Sinkronkan juga pilihan paket di kalkulator bawah
+    const targetPkg = packages[normalizedIdx];
+    if (targetPkg) {
+      setSelectedPkgId(targetPkg.id);
+      setPax((prevPax) => (prevPax < targetPkg.minOrder ? targetPkg.minOrder : prevPax));
+    }
+  };
+
+  // Dukungan tombol panah kiri/kanan keyboard untuk melihat animasi showcase
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (
+        document.activeElement &&
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)
+      ) {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        handleSelectShowcaseIndex(activeIndex + 1);
+      } else if (e.key === 'ArrowLeft') {
+        handleSelectShowcaseIndex(activeIndex - 1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
+  // Paket aktif di kalkulator
+  const activeCalculatorPkg = useMemo(
+    () => packages.find((p) => p.id === selectedPkgId) || packages[0],
+    [packages, selectedPkgId]
+  );
+
+  const selectedDateInfo = useMemo(
+    () => calendarDates.find((d) => d.dateStr === eventDate),
+    [calendarDates, eventDate]
+  );
+  const isDateFullyBooked = selectedDateInfo?.status === 'Penuh';
+
+  const scrollToCalculatorWithPkg = (pkg) => {
+    if (pkg) {
+      setSelectedPkgId(pkg.id);
+      setPax((prevPax) => (prevPax < pkg.minOrder ? pkg.minOrder : prevPax));
+    }
+    const el = document.getElementById('booking-calculator-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Toggle pondokan/stall
+  const handleToggleStall = (stallId) => {
+    setSelectedStalls((prev) => {
+      const current = prev[stallId];
+      if (current?.selected) {
+        const updated = { ...prev };
+        delete updated[stallId];
+        return updated;
+      }
+      return {
+        ...prev,
+        [stallId]: { selected: true, pax: Math.max(40, pax) }
+      };
+    });
+  };
+
+  const handleStallPaxChange = (stallId, newStallPax) => {
+    const val = Math.max(10, Number(newStallPax) || 0);
+    setSelectedStalls((prev) => ({
+      ...prev,
+      [stallId]: { selected: true, pax: val }
+    }));
+  };
+
+  // Kalkulasi biaya real-time
+  const pricingSummary = useMemo(() => {
+    const pkgPrice = activeCalculatorPkg ? activeCalculatorPkg.price : 0;
+    const validPax = Math.max(0, Number(pax) || 0);
+    const mainSubtotal = pkgPrice * validPax;
+
+    const stallDetails = [];
+    let stallsSubtotal = 0;
+
+    STALL_OPTIONS.forEach((stall) => {
+      const entry = selectedStalls[stall.id];
+      if (entry?.selected) {
+        const sPax = Math.max(10, Number(entry.pax) || validPax);
+        const sub = stall.price * sPax;
+        stallsSubtotal += sub;
+        stallDetails.push({
+          id: stall.id,
+          name: stall.name,
+          price: stall.price,
+          pax: sPax,
+          subtotal: sub
+        });
+      }
+    });
+
+    const grandTotal = mainSubtotal + stallsSubtotal;
+    const dpAmount = Math.round(grandTotal * 0.5);
+
+    return {
+      mainSubtotal,
+      stallDetails,
+      stallsSubtotal,
+      grandTotal,
+      dpAmount,
+      remainingAmount: grandTotal - dpAmount
+    };
+  }, [activeCalculatorPkg, pax, selectedStalls]);
+
+  // Submit form pemesanan
+  const handleSubmitOrder = (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (!activeCalculatorPkg) {
+      setFormError('Silakan pilih paket catering terlebih dahulu.');
+      return;
+    }
+    if (Number(pax) < activeCalculatorPkg.minOrder) {
+      setFormError(
+        `Jumlah minimal pemesanan untuk ${activeCalculatorPkg.name} adalah ${activeCalculatorPkg.minOrder} pax.`
+      );
+      return;
+    }
+    if (isDateFullyBooked) {
+      setFormError(
+        `Maaf, tanggal ${formatTanggalIndo(eventDate)} sudah Penuh (Fully Booked). Silakan pilih tanggal lain.`
+      );
+      return;
+    }
+    if (!customerName.trim() || !whatsapp.trim() || !address.trim()) {
+      setFormError('Mohon lengkapi Nama Pemesan, Nomor WhatsApp, dan Alamat Pengiriman.');
+      return;
+    }
+
+    const nextNum = String(orders.length + 1).padStart(3, '0');
+    const newOrder = {
+      id: `SRS-2026-${nextNum}`,
+      customerName: customerName.trim(),
+      whatsapp: whatsapp.trim(),
+      eventDate,
+      eventTime,
+      address: address.trim(),
+      notes: notes.trim() || 'Tidak ada catatan tambahan.',
+      packageId: activeCalculatorPkg.id,
+      packageName: activeCalculatorPkg.name,
+      packagePrice: activeCalculatorPkg.price,
+      pax: Number(pax),
+      stalls: pricingSummary.stallDetails.map(({ id, name, price, pax: sPax }) => ({
+        id,
+        name,
+        price,
+        pax: sPax
+      })),
+      totalAmount: pricingSummary.grandTotal,
+      dpAmount: pricingSummary.dpAmount,
+      status: 'Menunggu DP',
+      createdAt: getDateOffset(0)
+    };
+
+    onCreateOrder(newOrder);
+    setConfirmedOrder(newOrder);
+    setCopiedWa(false);
+
+    setCustomerName('');
+    setWhatsapp('');
+    setAddress('');
+    setNotes('');
+  };
+
+  const generateWhatsAppText = (order) => {
+    if (!order) return '';
+    const stallLines =
+      order.stalls && order.stalls.length > 0
+        ? order.stalls
+            .map((s) => `- ${s.name} (${s.pax} pax): ${formatRupiah(s.price * s.pax)}`)
+            .join('\n')
+        : '- Tidak ada tambahan pondokan';
+
+    return (
+      `Halo Admin *Sarasa Catering*, saya ingin konfirmasi pesanan berikut:\n\n` +
+      `*Kode Pesanan:* ${order.id}\n` +
+      `*Nama:* ${order.customerName}\n` +
+      `*Tanggal Acara:* ${formatTanggalIndo(order.eventDate)} (${order.eventTime} WIB)\n` +
+      `*Alamat:* ${order.address}\n\n` +
+      `*Paket Utama:* ${order.packageName} (${order.pax} pax)\n` +
+      `*Pondokan (Stall):*\n${stallLines}\n\n` +
+      `*Total Estimasi:* ${formatRupiah(order.totalAmount)}\n` +
+      `*Nominal DP (50%):* ${formatRupiah(order.dpAmount)}\n\n` +
+      `Mohon info nomor rekening untuk transfer DP. Terima kasih!`
+    );
+  };
+
+  const handleCopyWaText = (order) => {
+    const text = generateWhatsAppText(order);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+    setCopiedWa(true);
+    setTimeout(() => setCopiedWa(false), 3000);
+  };
+
+  return (
+    <main className="pb-24">
+      {/* ====================================================================
+          STAGE 1: INTERACTIVE HERO SHOWCASE (ARC PLATE + STAGGERED TITLE)
+      ==================================================================== */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#F7F5F0] via-[#EFECE4] to-[#E5E0D4] border-b border-stone-200/80 min-h-[680px] lg:min-h-[730px] flex flex-col justify-between">
+        {/* Elemen Dekorasi Latar & Lampu Gantung Minimalis (seperti di video) */}
+        <div className="pointer-events-none absolute top-0 right-14 hidden xl:flex flex-col items-center z-20">
+          <div className="w-[2px] h-32 bg-stone-800/70" />
+          <div className="w-3 h-5 bg-amber-500 rounded-t-sm" />
+          <div className="w-12 h-16 bg-emerald-950 rounded-t-full shadow-xl border-b-2 border-amber-400/60" />
+        </div>
+
+        {/* PITA MELENGKUNG (CURVED ARC RIBBON) DI BELAKANG PIRING UTAMA */}
+        <div
+          key={`ribbon-${animTriggerKey}`}
+          className="pointer-events-none absolute inset-0 overflow-hidden z-0 animate-ribbon-arc"
+        >
+          <svg
+            viewBox="0 0 1440 800"
+            fill="none"
+            className="w-full h-full object-cover"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <defs>
+              <linearGradient id="sarasaArcGrad" x1="65%" y1="0%" x2="15%" y2="75%">
+                <stop offset="0%" stopColor={currentShowPkg.accentTint || '#064E3B'} stopOpacity="0.16" />
+                <stop offset="55%" stopColor="#D97706" stopOpacity="0.14" />
+                <stop offset="100%" stopColor={currentShowPkg.accentTint || '#064E3B'} stopOpacity="0.04" />
+              </linearGradient>
+            </defs>
+            {/* Jalur pita melengkung dari atas-kanan/tengah menuju piring di kiri-tengah */}
+            <path
+              d="M 780 -80 C 660 180, 460 360, 260 390 C 140 408, 95 310, 150 220 C 220 110, 450 60, 560 -80 Z"
+              fill="url(#sarasaArcGrad)"
+            />
+            {/* Garis kurva aksen emas halus */}
+            <path
+              d="M 720 -40 C 610 190, 440 340, 250 360"
+              stroke="#D97706"
+              strokeWidth="1.5"
+              strokeDasharray="6 6"
+              opacity="0.35"
+            />
+          </svg>
+        </div>
+
+        {/* Indikator titik vertikal di sisi kiri (seperti pada video referensi) */}
+        <div className="hidden lg:flex flex-col items-center gap-2.5 absolute left-5 top-1/2 -translate-y-1/2 z-20">
+          {packages.map((p, idx) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => handleSelectShowcaseIndex(idx)}
+              aria-label={`Pilih ${p.name}`}
+              className={`rounded-full transition-all duration-300 ${
+                idx === activeIndex
+                  ? 'w-2 h-7 bg-emerald-900 shadow-sm'
+                  : 'w-2 h-2 bg-stone-400/70 hover:bg-amber-600'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* KONTEN UTAMA STAGE: 3 KOLOM (PIRING BERPUTAR | JUDUL STAGGERED | KARTU OVERVIEW) */}
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-12 pt-8 sm:pt-12 pb-6 relative z-10 flex-1 flex flex-col justify-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
+            {/* 1. KOLOM KIRI: PIRING TOP-DOWN DENGAN ANIMASI CURVED ARC */}
+            <div className="lg:col-span-4 flex items-center justify-center relative">
+              {/* Lingkaran orbit dekoratif halus */}
+              <div className="absolute w-72 h-72 sm:w-80 sm:h-80 rounded-full border border-amber-600/20 pointer-events-none" />
+              <div
+                key={`plate-${animTriggerKey}`}
+                className="animate-plate-arc cursor-pointer"
+                onClick={() => handleSelectShowcaseIndex(activeIndex + 1)}
+                title="Klik piring untuk memutar ke hidangan berikutnya"
+              >
+                <TopDownPlateSVG
+                  styleType={currentShowPkg.plateStyle || 'buffet'}
+                  size="large"
+                />
+              </div>
+            </div>
+
+            {/* 2. KOLOM TENGAH: STAGGERED SPLIT TYPOGRAPHY & TOMBOL AKSI */}
+            <div className="lg:col-span-4 text-center lg:text-left flex flex-col items-center lg:items-start justify-center space-y-4">
+              {/* Label Ranking (#1 Most loved dish) */}
+              <div
+                key={`rank-${animTriggerKey}`}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-600/30 text-amber-900 text-xs sm:text-sm font-bold tracking-wide animate-title-top"
+              >
+                <Award className="w-4 h-4 text-amber-600" />
+                <span>{currentShowPkg.rankLabel || '#1 Sajian Favorit Sarasa'}</span>
+              </div>
+
+              {/* 2-Baris Judul Besar (Baris 1 Tipis Elegan, Baris 2 Bold Zamrud) */}
+              <div className="overflow-hidden py-1">
+                <h1 className="leading-[1.06] tracking-tight">
+                  <span
+                    key={`line1-${animTriggerKey}`}
+                    className="block text-3xl sm:text-4xl xl:text-[44px] font-extralight text-stone-700 uppercase animate-title-top"
+                  >
+                    {splitTitle.line1}
+                  </span>
+                  <span
+                    key={`line2-${animTriggerKey}`}
+                    className="block text-4xl sm:text-5xl xl:text-[54px] font-black text-emerald-950 uppercase tracking-tight mt-1 animate-title-bottom"
+                  >
+                    {splitTitle.line2}
+                  </span>
+                </h1>
+              </div>
+
+              {/* Badge Harga & Minimal Order */}
+              <div
+                key={`price-${animTriggerKey}`}
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5 animate-card-reveal"
+              >
+                <span className="px-3.5 py-1 rounded-xl bg-emerald-950 text-amber-400 font-extrabold text-sm sm:text-base shadow-sm">
+                  {formatRupiah(currentShowPkg.price)}
+                  <span className="text-xs font-normal text-emerald-200"> / pax</span>
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-white/80 border border-stone-300 text-stone-700 text-xs font-bold">
+                  Min. Order {currentShowPkg.minOrder} Pax
+                </span>
+                <span className="px-2.5 py-1 rounded-xl bg-emerald-100/80 text-emerald-900 text-xs font-bold">
+                  {currentShowPkg.category}
+                </span>
+              </div>
+
+              {/* Dual Action Buttons: Play Video & Order Food (Persis Referensi Video) */}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setVideoModalPkg(currentShowPkg)}
+                  className="group inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/85 hover:bg-white text-stone-800 border border-stone-300/90 shadow-sm hover:shadow font-bold text-xs sm:text-sm transition-all"
+                >
+                  <span className="w-7 h-7 rounded-lg bg-emerald-950 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                  </span>
+                  <span>Lihat Video Penyajian</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+                  className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-900 to-emerald-950 hover:from-emerald-800 hover:to-emerald-900 text-amber-300 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-950/20 border border-amber-500/40 transition-all"
+                >
+                  <ShoppingBag className="w-4 h-4 text-amber-400" />
+                  <span>Pesan Paket Ini</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3. KOLOM KANAN: FLOATING GLASS CARD (OVERVIEW & RINCIAN MENU) */}
+            <div className="lg:col-span-4 flex justify-center lg:justify-end">
+              <div className="w-full max-w-sm bg-white/85 backdrop-blur-xl rounded-3xl border border-white shadow-[0_20px_50px_rgba(6,78,59,0.08)] p-6 space-y-5">
+                {/* Header Tab: Overview | Rincian Menu */}
+                <div className="flex items-center justify-between border-b border-stone-200/80 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setRightCardTab('overview')}
+                    className={`text-sm font-bold pb-1 transition-all relative ${
+                      rightCardTab === 'overview'
+                        ? 'text-emerald-950'
+                        : 'text-stone-400 hover:text-stone-600'
+                    }`}
+                  >
+                    Overview
+                    {rightCardTab === 'overview' && (
+                      <span className="absolute -bottom-[13px] left-0 right-0 h-0.5 bg-amber-500 rounded-full" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRightCardTab('ingredients')}
+                    className={`text-sm font-bold pb-1 transition-all relative ${
+                      rightCardTab === 'ingredients'
+                        ? 'text-emerald-950'
+                        : 'text-stone-400 hover:text-stone-600'
+                    }`}
+                  >
+                    Rincian Menu ({currentShowPkg.items?.length || 0})
+                    {rightCardTab === 'ingredients' && (
+                      <span className="absolute -bottom-[13px] left-0 right-0 h-0.5 bg-amber-500 rounded-full" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Isi Kartu Berdasarkan Tab */}
+                <div key={`card-${animTriggerKey}-${rightCardTab}`} className="animate-card-reveal">
+                  {rightCardTab === 'overview' ? (
+                    <div className="space-y-4">
+                      {/* Kotak Rating Emas Besar (Persis Video Referensi) */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-emerald-950 flex flex-col items-center justify-center shadow-lg shadow-amber-500/25 shrink-0">
+                          <span className="text-2xl font-black leading-none tracking-tight">
+                            {currentShowPkg.rating || '4.9'}
+                          </span>
+                          <Star className="w-4 h-4 fill-emerald-950 text-emerald-950 mt-1" />
+                        </div>
+
+                        <div>
+                          <h3 className="text-lg font-extrabold text-emerald-950 leading-snug">
+                            {currentShowPkg.chefName || 'Chef Feny Maharani'}
+                          </h3>
+                          <p className="text-xs font-medium text-amber-700">
+                            {currentShowPkg.chefTitle || 'Executive Culinary Director'}
+                          </p>
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-800 font-semibold mt-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            100% Halal & Food Safety Certified
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Kutipan Ulasan Chef */}
+                      <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                        {currentShowPkg.chefQuote ||
+                          currentShowPkg.description ||
+                          'Racikan istimewa berbahan baku segar pilihan dengan takaran bumbu warisan Nusantara untuk menjamin kepuasan seluruh tamu Anda.'}
+                      </p>
+
+                      {/* Tombol Interaktif Like & Share */}
+                      <div className="pt-2 flex items-center justify-between border-t border-stone-100">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onToggleLike(currentShowPkg.id)}
+                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                              currentShowPkg.userLiked
+                                ? 'bg-emerald-900 text-amber-300 shadow-sm'
+                                : 'bg-stone-100 hover:bg-amber-100/70 text-stone-700'
+                            }`}
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <span>{currentShowPkg.likes || 128} Suka</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+                            className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-500 transition-colors"
+                            title="Simulasikan Harga Paket"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setRightCardTab('ingredients')}
+                          className="text-xs font-bold text-emerald-800 hover:text-amber-700 flex items-center gap-1"
+                        >
+                          <span>Lihat Lauk</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                        Komposisi Hidangan Paket:
+                      </p>
+                      <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {currentShowPkg.items.map((item, idx) => (
+                          <li
+                            key={idx}
+                            className="text-xs sm:text-sm text-stone-700 flex items-center gap-2.5 bg-stone-50/90 px-3 py-1.5 rounded-xl border border-stone-200/60"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="font-medium">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <span>Hitung Estimasi {currentShowPkg.name}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ==================================================================
+            BAGIAN BAWAH STAGE: CAROUSEL SELECTOR PIRING & QUICK-ACTION DOCK
+        ================================================================== */}
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-12 pb-6 relative z-20 space-y-5">
+          {/* DISH SELECTOR CAROUSEL (Kapsul Putih Berbingkai Emas Saat Aktif) */}
+          <div className="flex items-center justify-center lg:justify-start gap-2 sm:gap-4">
+            {/* Tombol Panah Kiri < */}
+            <button
+              type="button"
+              onClick={() => handleSelectShowcaseIndex(activeIndex - 1)}
+              className="w-10 h-10 rounded-full bg-white/90 hover:bg-emerald-950 text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm flex items-center justify-center transition-all shrink-0"
+              title="Menu Sebelumnya"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            {/* Deretan Thumbnail Piring */}
+            <div className="flex items-end gap-2.5 sm:gap-4 overflow-x-auto py-3 px-2 no-scrollbar">
+              {packages.map((pkg, idx) => {
+                const isActive = idx === activeIndex;
+                return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    onClick={() => handleSelectShowcaseIndex(idx)}
+                    className={`group relative flex flex-col items-center text-center transition-all duration-300 px-3.5 pt-3 pb-3.5 rounded-2xl min-w-[110px] sm:min-w-[126px] ${
+                      isActive
+                        ? 'bg-white shadow-xl border-2 border-amber-400 -translate-y-2'
+                        : 'bg-white/40 hover:bg-white/80 border border-transparent hover:border-stone-300'
+                    }`}
+                  >
+                    <div
+                      className={`transition-transform duration-500 ${
+                        isActive ? 'scale-110 rotate-12' : 'group-hover:scale-105'
+                      }`}
+                    >
+                      <TopDownPlateSVG styleType={pkg.plateStyle || 'buffet'} size="small" />
+                    </div>
+                    <span
+                      className={`mt-2.5 text-xs leading-tight line-clamp-2 ${
+                        isActive
+                          ? 'font-extrabold text-emerald-950'
+                          : 'font-medium text-stone-600'
+                      }`}
+                    >
+                      {pkg.name}
+                    </span>
+                    <span
+                      className={`mt-1 text-[10px] font-bold ${
+                        isActive ? 'text-amber-700' : 'text-stone-400'
+                      }`}
+                    >
+                      {formatRupiah(pkg.price)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tombol Panah Kanan > */}
+            <button
+              type="button"
+              onClick={() => handleSelectShowcaseIndex(activeIndex + 1)}
+              className="w-10 h-10 rounded-full bg-white/90 hover:bg-emerald-950 text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm flex items-center justify-center transition-all shrink-0"
+              title="Menu Berikutnya"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* BOTTOM QUICK-ACTION DOCK (IKON MINIMALIS PERSIS VIDEO REFERENSI) */}
+          <div className="flex items-center justify-center lg:justify-start gap-6 sm:gap-9 pt-1">
+            <a
+              href="#katalog-lengkap"
+              className="group flex items-center gap-2 text-stone-600 hover:text-emerald-950 transition-colors"
+              title="Katalog Lengkap"
+            >
+              <div className="p-2.5 rounded-xl bg-white/80 group-hover:bg-emerald-950 group-hover:text-amber-400 border border-stone-300/80 shadow-sm transition-all">
+                <Utensils className="w-4 h-4" />
+              </div>
+              <span className="hidden sm:inline text-xs font-bold">Semua Paket</span>
+            </a>
+
+            <a
+              href="#booking-calculator-section"
+              className="group flex items-center gap-2 text-stone-600 hover:text-emerald-950 transition-colors"
+              title="Pondokan & Stall"
+            >
+              <div className="p-2.5 rounded-xl bg-white/80 group-hover:bg-emerald-950 group-hover:text-amber-400 border border-stone-300/80 shadow-sm transition-all">
+                <Flame className="w-4 h-4" />
+              </div>
+              <span className="hidden sm:inline text-xs font-bold">Gubukan / Stall</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setShowOrderTracker(true)}
+              className="group flex items-center gap-2 text-stone-600 hover:text-emerald-950 transition-colors"
+              title="Cek Status Pesanan Anda"
+            >
+              <div className="p-2.5 rounded-xl bg-white/80 group-hover:bg-emerald-950 group-hover:text-amber-400 border border-stone-300/80 shadow-sm transition-all">
+                <FileText className="w-4 h-4" />
+              </div>
+              <span className="hidden sm:inline text-xs font-bold">Cek Pesanan</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onSwitchToAdmin}
+              className="group flex items-center gap-2 text-stone-600 hover:text-emerald-950 transition-colors"
+              title="Buka Dashboard Admin & Dapur"
+            >
+              <div className="p-2.5 rounded-xl bg-white/80 group-hover:bg-emerald-950 group-hover:text-amber-400 border border-stone-300/80 shadow-sm transition-all">
+                <ChefHat className="w-4 h-4" />
+              </div>
+              <span className="hidden sm:inline text-xs font-bold">Sistem Dapur</span>
+            </button>
+
+            {/* Tombol Bulat Menonjol (seperti tombol mic/action bulat di tengah bawah video) */}
+            <button
+              type="button"
+              onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+              className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-900 to-emerald-950 text-amber-400 shadow-xl border-2 border-amber-400 flex items-center justify-center hover:scale-105 transition-transform"
+              title="Kalkulator Simulasi & Booking Cepat"
+            >
+              <Calendar className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          STAGE 2: CEK KETERSEDIAAN TANGGAL ACARA (14 HARI KE DEPAN)
+      ==================================================================== */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+        <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider">
+                <Calendar className="w-4 h-4 text-amber-600" />
+                <span>Kalender Kapasitas Dapur Real-Time</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-emerald-950 mt-1">
+                Cek Ketersediaan Tanggal Acara (14 Hari ke Depan)
+              </h2>
+              <p className="text-xs sm:text-sm text-stone-600 mt-0.5">
+                Klik tanggal yang tersedia untuk langsung mengunci jadwal pada kalkulator pesanan.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                Tersedia
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                Slot Terbatas
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-900 border border-rose-200">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                Fully Booked
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+            {calendarDates.map((d) => {
+              const isSelected = d.dateStr === eventDate;
+              const isFull = d.status === 'Penuh';
+              const isLimited = d.status === 'Slot Terbatas';
+
+              return (
+                <button
+                  key={d.dateStr}
+                  type="button"
+                  onClick={() => {
+                    setEventDate(d.dateStr);
+                    if (isFull) {
+                      setFormError(
+                        `Tanggal ${formatTanggalIndo(d.dateStr)} sudah Fully Booked. Silakan pilih tanggal lain.`
+                      );
+                    } else {
+                      setFormError('');
+                    }
+                  }}
+                  className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                    isFull
+                      ? 'bg-rose-50/70 border-rose-200 text-rose-900 opacity-80 hover:opacity-100'
+                      : isSelected
+                      ? 'bg-emerald-950 border-amber-400 text-white shadow-lg scale-[1.02]'
+                      : isLimited
+                      ? 'bg-amber-50/60 border-amber-200 hover:border-amber-500 text-stone-800'
+                      : 'bg-[#FAF8F5] border-stone-200 hover:border-emerald-700 text-stone-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-xs font-bold ${
+                        isSelected ? 'text-amber-300' : 'text-stone-500'
+                      }`}
+                    >
+                      {d.dayName}
+                    </span>
+                    {isSelected && !isFull && (
+                      <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    )}
+                  </div>
+                  <div className="my-1.5">
+                    <span className="text-lg font-black">{d.dayNum}</span>{' '}
+                    <span className="text-xs font-semibold">{d.monthShort}</span>
+                  </div>
+                  <span
+                    className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-md w-fit ${
+                      isFull
+                        ? 'bg-rose-200/80 text-rose-900'
+                        : isSelected
+                        ? 'bg-amber-400 text-emerald-950'
+                        : isLimited
+                        ? 'bg-amber-200/80 text-amber-900'
+                        : 'bg-emerald-100 text-emerald-900'
+                    }`}
+                  >
+                    {isFull ? 'Fully Booked' : d.status}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          STAGE 3: KALKULATOR SIMULASI HARGA & FORMULIR PEMESANAN
+      ==================================================================== */}
+      <section
+        id="booking-calculator-section"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14"
+      >
+        <div className="mb-8">
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full">
+            Simulasi Transparan & Pemesanan
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 mt-2">
+            Kalkulator Estimasi Biaya & Formulir Booking
+          </h2>
+          <p className="text-stone-600 text-sm sm:text-base mt-1">
+            Atur porsi paket utama, tambahkan gubukan/stall, dan kunci jadwal dapur Sarasa Catering.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmitOrder}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+        >
+          {/* KIRI: INPUT KONFIGURASI PAKET, STALL & DATA ACARA */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Step 1: Paket & Porsi */}
+            <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+                <span className="w-8 h-8 rounded-full bg-emerald-950 text-amber-400 font-bold text-sm flex items-center justify-center">
+                  1
+                </span>
+                <div>
+                  <h3 className="font-bold text-lg text-emerald-950">
+                    Pilih Paket Utama & Jumlah Porsi (Pax)
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Terhubung otomatis dengan pilihan Anda pada Showcase di atas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Paket Catering Utama
+                  </label>
+                  <select
+                    value={selectedPkgId}
+                    onChange={(e) => {
+                      const idx = packages.findIndex((p) => p.id === e.target.value);
+                      if (idx !== -1) {
+                        handleSelectShowcaseIndex(idx);
+                      }
+                    }}
+                    className="w-full rounded-xl border border-stone-300 bg-[#FAF8F5] px-3.5 py-3 text-sm font-bold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  >
+                    {packages.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — {formatRupiah(p.price)}/pax (Min. {p.minOrder} pax)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Jumlah Porsi (Pax)
+                  </label>
+                  <input
+                    type="number"
+                    min={activeCalculatorPkg?.minOrder || 1}
+                    value={pax}
+                    onChange={(e) => setPax(Number(e.target.value))}
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-3 text-sm font-extrabold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  />
+                  {activeCalculatorPkg && (
+                    <p
+                      className={`text-[11px] mt-1 font-semibold ${
+                        pax < activeCalculatorPkg.minOrder
+                          ? 'text-rose-600'
+                          : 'text-stone-500'
+                      }`}
+                    >
+                      Minimal order: {activeCalculatorPkg.minOrder} pax
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Pondokan / Gubukan Stall */}
+            <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+                <span className="w-8 h-8 rounded-full bg-emerald-950 text-amber-400 font-bold text-sm flex items-center justify-center">
+                  2
+                </span>
+                <div>
+                  <h3 className="font-bold text-lg text-emerald-950">
+                    Tambahan Pondokan / Gubukan Live Stall (Opsional)
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Pilih menu gubukan favorit untuk melengkapi jamuan utama Anda.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {STALL_OPTIONS.map((stall) => {
+                  const isChecked = !!selectedStalls[stall.id]?.selected;
+                  const stallPax = selectedStalls[stall.id]?.pax || Math.max(40, pax);
+
+                  return (
+                    <div
+                      key={stall.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        isChecked
+                          ? 'bg-amber-50/70 border-amber-400 shadow-sm'
+                          : 'bg-[#FAF8F5] border-stone-200 hover:border-stone-300'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <label className="flex items-start gap-3 cursor-pointer flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleStall(stall.id)}
+                            className="mt-1 w-4 h-4 rounded text-emerald-900 focus:ring-emerald-800 accent-emerald-900"
+                          />
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-sm text-emerald-950">
+                                {stall.name}
+                              </span>
+                              <span className="text-xs font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                                +{formatRupiah(stall.price)}/pax
+                              </span>
+                            </div>
+                            <p className="text-xs text-stone-600 mt-0.5">{stall.description}</p>
+                          </div>
+                        </label>
+
+                        {isChecked && (
+                          <div className="flex items-center gap-2 pl-7 sm:pl-0">
+                            <span className="text-xs font-bold text-stone-600">Porsi:</span>
+                            <input
+                              type="number"
+                              min={10}
+                              value={stallPax}
+                              onChange={(e) => handleStallPaxChange(stall.id, e.target.value)}
+                              className="w-20 rounded-xl border border-amber-400 bg-white px-2.5 py-1.5 text-sm font-extrabold text-emerald-950 text-center"
+                            />
+                            <span className="text-xs text-stone-500">pax</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 3: Detail Acara & Pengiriman */}
+            <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+                <span className="w-8 h-8 rounded-full bg-emerald-950 text-amber-400 font-bold text-sm flex items-center justify-center">
+                  3
+                </span>
+                <div>
+                  <h3 className="font-bold text-lg text-emerald-950">
+                    Informasi Pemesan & Lokasi Acara
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Data ini digunakan untuk pembuatan Invoice resmi dan jadwal pengiriman kurir.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Nama Lengkap Pemesan *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Ibu Siti Rahmawati"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Nomor WhatsApp Aktif *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Contoh: 0812-3456-7890"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Tanggal Acara *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    min={getDateOffset(1)}
+                    value={eventDate}
+                    onChange={(e) => {
+                      setEventDate(e.target.value);
+                      setFormError('');
+                    }}
+                    className={`w-full rounded-xl border px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 ${
+                      isDateFullyBooked
+                        ? 'border-rose-500 bg-rose-50 text-rose-900 focus:ring-rose-500'
+                        : 'border-stone-300 bg-white text-emerald-950 focus:ring-emerald-800'
+                    }`}
+                  />
+                  {isDateFullyBooked ? (
+                    <p className="text-xs text-rose-600 font-bold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Tanggal ini Fully Booked! Pilih tanggal lain.</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-emerald-700 font-semibold mt-1">
+                      ✓ Jadwal dapur tersedia
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Jam Hidangan Siap di Lokasi *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Alamat Lengkap Lokasi Acara *
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Nama gedung/jalan, nomor rumah, RT/RW, kecamatan, dan patokan lokasi..."
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                    Catatan Khusus untuk Chef & Tim Dekorasi (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Nuansa kain meja hijau-emas, sambal dipisah, atau tulisan pada tumpeng..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* KANAN: RINGKASAN ESTIMASI REAL-TIME & TOMBOL SUBMIT */}
+          <div className="lg:col-span-5 lg:sticky lg:top-24">
+            <div className="bg-emerald-950 text-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-emerald-800 space-y-5">
+              <div className="flex items-center justify-between border-b border-emerald-800/90 pb-4">
+                <div>
+                  <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">
+                    Live Summary
+                  </span>
+                  <h3 className="text-xl font-extrabold text-white mt-0.5">
+                    Ringkasan Estimasi Biaya
+                  </h3>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-emerald-900 border border-amber-400/40 flex items-center justify-center text-amber-400">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <p className="font-bold text-white">{activeCalculatorPkg?.name}</p>
+                    <p className="text-xs text-emerald-300">
+                      {pax} pax × {formatRupiah(activeCalculatorPkg?.price || 0)}
+                    </p>
+                  </div>
+                  <span className="font-extrabold text-white">
+                    {formatRupiah(pricingSummary.mainSubtotal)}
+                  </span>
+                </div>
+
+                {pricingSummary.stallDetails.length > 0 && (
+                  <div className="pt-2.5 border-t border-emerald-800/80 space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                      Tambahan Pondokan (Stall):
+                    </p>
+                    {pricingSummary.stallDetails.map((st) => (
+                      <div key={st.id} className="flex justify-between text-xs text-emerald-100">
+                        <span>
+                          {st.name} ({st.pax} pax)
+                        </span>
+                        <span className="font-bold">{formatRupiah(st.subtotal)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-emerald-800/80 flex justify-between text-xs text-emerald-200">
+                  <span>Jadwal Acara:</span>
+                  <span className="font-bold text-amber-300">
+                    {formatTanggalIndo(eventDate, false)} • {eventTime} WIB
+                  </span>
+                </div>
+              </div>
+
+              {/* Kotak Total & DP 50% */}
+              <div className="bg-emerald-900/90 rounded-2xl p-4 border border-emerald-700/80 space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-emerald-200">Total Estimasi Biaya</span>
+                  <span className="text-xl font-black text-white">
+                    {formatRupiah(pricingSummary.grandTotal)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t border-emerald-800">
+                  <div>
+                    <span className="text-xs font-extrabold uppercase text-amber-400 block">
+                      Uang Muka / DP (50%)
+                    </span>
+                    <span className="text-[11px] text-emerald-300">
+                      Mengunci jadwal & bahan baku dapur
+                    </span>
+                  </div>
+                  <span className="text-lg font-black text-amber-400">
+                    {formatRupiah(pricingSummary.dpAmount)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs text-emerald-300 pt-1">
+                  <span>Pelunasan (H-1 Acara)</span>
+                  <span>{formatRupiah(pricingSummary.remainingAmount)}</span>
+                </div>
+              </div>
+
+              {formError && (
+                <div className="p-3.5 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isDateFullyBooked}
+                className={`w-full py-3.5 px-5 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${
+                  isDateFullyBooked
+                    ? 'bg-stone-600 text-stone-300 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-emerald-950 shadow-amber-500/25'
+                }`}
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span>Kunci Jadwal & Buat Pesanan</span>
+              </button>
+
+              <p className="text-[11px] text-center text-emerald-300/80">
+                Terintegrasi langsung dengan Lembar Produksi Dapur (Kitchen Sheet) Sarasa.
+              </p>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      {/* ====================================================================
+          MODAL PREVIEW VIDEO PENYAJIAN & STANDAR DEKORASI
+      ==================================================================== */}
+      {videoModalPkg && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-emerald-950 text-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl border border-amber-400/40">
+            <div className="p-5 bg-emerald-900/80 border-b border-emerald-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-amber-400 text-emerald-950 flex items-center justify-center">
+                  <Play className="w-4 h-4 fill-current" />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">
+                    Preview Penyajian: {videoModalPkg.name}
+                  </h3>
+                  <p className="text-xs text-emerald-300">
+                    Durasi Dokumentasi Standar Setup: {videoModalPkg.videoDuration || '02:00'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVideoModalPkg(null)}
+                className="p-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Simulasi Visual Panggung Penyajian */}
+            <div className="p-6 space-y-5">
+              <div className="relative rounded-2xl bg-gradient-to-br from-emerald-900 via-[#043927] to-emerald-950 border border-emerald-700/80 p-6 flex flex-col sm:flex-row items-center gap-6 overflow-hidden">
+                <div className="animate-spin" style={{ animationDuration: '18s' }}>
+                  <TopDownPlateSVG
+                    styleType={videoModalPkg.plateStyle || 'buffet'}
+                    size="small"
+                  />
+                </div>
+                <div className="space-y-1.5 text-center sm:text-left">
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-400 text-emerald-950">
+                    Standar Penyajian Eksklusif
+                  </span>
+                  <h4 className="text-lg font-extrabold text-white">
+                    Kurasi oleh {videoModalPkg.chefName || 'Tim Eksekutif Sarasa'}
+                  </h4>
+                  <p className="text-xs text-emerald-200 leading-relaxed">
+                    {videoModalPkg.chefQuote}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                  Fasilitas & Perlengkapan Penyajian yang Didapatkan:
+                </p>
+                {(
+                  videoModalPkg.videoHighlights || [
+                    'Peralatan saji higienis berstandar hotel bintang lima',
+                    'Pengiriman terjadwal dengan mobil boks berinsulasi suhu',
+                    'Garansi ketepatan waktu tiba 60 menit sebelum acara'
+                  ]
+                ).map((hl, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2.5 text-xs sm:text-sm bg-emerald-900/60 border border-emerald-800 px-3.5 py-2.5 rounded-xl"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{hl}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setVideoModalPkg(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-emerald-200 hover:text-white"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = videoModalPkg;
+                    setVideoModalPkg(null);
+                    scrollToCalculatorWithPkg(target);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-xs flex items-center gap-2"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Pesan Paket Ini Sekarang</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODAL CEK STATUS PESANAN PELANGGAN
+      ==================================================================== */}
+      {showOrderTracker && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-200">
+            <div className="bg-emerald-950 text-white p-5 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-base">Lacak Status Pesanan Catering</h3>
+                <p className="text-xs text-emerald-300">
+                  Masukkan nama pemesan atau kode booking (misal: SRS-2026-001)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOrderTracker(false)}
+                className="text-emerald-200 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="relative">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Ketik kode pesanan atau nama Anda..."
+                  value={trackerSearch}
+                  onChange={(e) => setTrackerSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800"
+                />
+              </div>
+
+              <div className="max-h-64 overflow-y-auto space-y-2.5">
+                {orders
+                  .filter(
+                    (o) =>
+                      !trackerSearch.trim() ||
+                      o.id.toLowerCase().includes(trackerSearch.toLowerCase()) ||
+                      o.customerName.toLowerCase().includes(trackerSearch.toLowerCase())
+                  )
+                  .map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-stone-200 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <span className="text-xs font-mono font-bold text-emerald-900">
+                          {ord.id}
+                        </span>
+                        <p className="font-bold text-sm text-stone-900">{ord.customerName}</p>
+                        <p className="text-xs text-stone-500">
+                          {ord.packageName} ({ord.pax} pax) •{' '}
+                          {formatTanggalIndo(ord.eventDate, false)}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-lg bg-amber-100 text-amber-900 font-extrabold text-xs shrink-0">
+                        {ord.status}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODAL KONFIRMASI PESANAN BERHASIL & WHATSAPP
+      ==================================================================== */}
+      {confirmedOrder && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-200">
+            <div className="bg-emerald-950 p-6 text-white text-center relative">
+              <button
+                type="button"
+                onClick={() => setConfirmedOrder(null)}
+                className="absolute top-4 right-4 text-emerald-200 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="w-14 h-14 rounded-full bg-amber-400 text-emerald-950 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <Check className="w-8 h-8 stroke-[3]" />
+              </div>
+              <h3 className="text-xl font-extrabold">Pesanan Berhasil Terjadwal!</h3>
+              <p className="text-xs text-emerald-200 mt-1">
+                Data acara Anda telah masuk ke Sistem Produksi Dapur Sarasa Catering.
+              </p>
+              <div className="mt-3 inline-block px-3.5 py-1 rounded-full bg-emerald-900 border border-amber-400/50 text-amber-300 text-xs font-mono font-bold">
+                Kode Booking: {confirmedOrder.id}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-stone-200 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Pemesan:</span>
+                  <span className="font-bold text-stone-800">{confirmedOrder.customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Jadwal Acara:</span>
+                  <span className="font-semibold text-stone-800">
+                    {formatTanggalIndo(confirmedOrder.eventDate, false)} ({confirmedOrder.eventTime})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Paket Utama:</span>
+                  <span className="font-semibold text-stone-800">
+                    {confirmedOrder.packageName} ({confirmedOrder.pax} pax)
+                  </span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-stone-200">
+                  <span className="font-bold text-emerald-950">Tagihan DP (50%):</span>
+                  <span className="font-extrabold text-amber-700">
+                    {formatRupiah(confirmedOrder.dpAmount)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleCopyWaText(confirmedOrder)}
+                  className="py-2.5 px-4 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
+                >
+                  {copiedWa ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      <span className="text-emerald-700">Teks Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Salin Format WA</span>
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={`https://wa.me/6281200000000?text=${encodeURIComponent(
+                    generateWhatsAppText(confirmedOrder)
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Konfirmasi via WhatsApp</span>
+                </a>
+              </div>
+
+              <div className="pt-2 border-t border-stone-100 flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmedOrder(null);
+                    onSwitchToAdmin();
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Lihat di Dashboard Admin & Dapur</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmedOrder(null)}
+                  className="py-2.5 px-4 rounded-xl text-stone-500 hover:text-stone-800 font-semibold text-xs"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
+// ============================================================================
+// 6. MODE 2: DASHBOARD PENGELOLAAN BISNIS CATERING (ADMIN & DAPUR)
+// ============================================================================
+
+function AdminDashboard({
+  orders,
+  packages,
+  onUpdateStatus,
+  onAddPackage,
+  onResetDemo,
+  onSwitchToCustomer
+}) {
+  const [activeTab, setActiveTab] = useState('orders');
+  const [statusFilter, setStatusFilter] = useState('Semua');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [invoiceOrder, setInvoiceOrder] = useState(null);
+
+  const availableOrderDates = useMemo(() => {
+    return Array.from(new Set(orders.map((o) => o.eventDate))).sort();
+  }, [orders]);
+
+  const [selectedKitchenDate, setSelectedKitchenDate] = useState(
+    availableOrderDates[0] || getDateOffset(3)
+  );
+
+  useEffect(() => {
+    if (!selectedKitchenDate && availableOrderDates.length > 0) {
+      setSelectedKitchenDate(availableOrderDates[0]);
+    }
+  }, [availableOrderDates, selectedKitchenDate]);
+
+  // State Form Tambah Paket Baru (Otomatis masuk ke Showcase Carousel juga!)
+  const [newPkgName, setNewPkgName] = useState('');
+  const [newPkgCategory, setNewPkgCategory] = useState('Prasmanan');
+  const [newPkgPlateStyle, setNewPkgPlateStyle] = useState('buffet');
+  const [newPkgPrice, setNewPkgPrice] = useState(55000);
+  const [newPkgHpp, setNewPkgHpp] = useState(31000);
+  const [newPkgMinOrder, setNewPkgMinOrder] = useState(40);
+  const [newPkgChefName, setNewPkgChefName] = useState('Chef Feny Maharani');
+  const [newPkgItemsText, setNewPkgItemsText] = useState('');
+  const [pkgFormError, setPkgFormError] = useState('');
+
+  // Ringkasan KPI
+  const kpiStats = useMemo(() => {
+    const activeOrders = orders.filter((o) => o.status !== 'Selesai');
+    const totalPaxScheduled = activeOrders.reduce((sum, o) => sum + o.pax, 0);
+    const totalOmzet = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const collectedDp = orders
+      .filter((o) => o.status !== 'Menunggu DP')
+      .reduce((sum, o) => sum + (o.status === 'Selesai' ? o.totalAmount : o.dpAmount), 0);
+    const pendingActionCount = orders.filter((o) => o.status === 'Menunggu DP').length;
+
+    return {
+      activeCount: activeOrders.length,
+      totalPaxScheduled,
+      totalOmzet,
+      collectedDp,
+      pendingActionCount
+    };
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const matchStatus = statusFilter === 'Semua' || o.status === statusFilter;
+      const q = searchQuery.toLowerCase();
+      const matchQuery =
+        !q ||
+        o.id.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.packageName.toLowerCase().includes(q);
+      return matchStatus && matchQuery;
+    });
+  }, [orders, statusFilter, searchQuery]);
+
+  // Rekap Produksi Dapur (Kitchen Sheet)
+  const kitchenSummary = useMemo(() => {
+    const ordersOnDate = orders
+      .filter((o) => o.eventDate === selectedKitchenDate)
+      .sort((a, b) => a.eventTime.localeCompare(b.eventTime));
+
+    const dishMap = {};
+    const stallMap = {};
+
+    ordersOnDate.forEach((order) => {
+      const pkg = packages.find((p) => p.id === order.packageId);
+      const dishList = pkg ? pkg.items : [`Menu ${order.packageName}`];
+
+      dishList.forEach((dishName) => {
+        if (!dishMap[dishName]) {
+          dishMap[dishName] = { name: dishName, totalPax: 0, sources: [] };
+        }
+        dishMap[dishName].totalPax += order.pax;
+        dishMap[dishName].sources.push(`${order.id} (${order.pax} pax)`);
+      });
+
+      if (order.stalls && order.stalls.length > 0) {
+        order.stalls.forEach((st) => {
+          if (!stallMap[st.name]) {
+            stallMap[st.name] = { name: st.name, totalPax: 0, sources: [] };
+          }
+          stallMap[st.name].totalPax += st.pax;
+          stallMap[st.name].sources.push(`${order.id} (${st.pax} pax)`);
+        });
+      }
+    });
+
+    const aggregatedDishes =
