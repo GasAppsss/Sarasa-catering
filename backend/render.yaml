@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: sajian-catering-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_DRIVER
+        value: postgres
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://gasappsss.github.io
+      - key: DATABASE_URL
+        sync: false

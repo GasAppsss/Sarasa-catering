@@ -1,4 +1,4 @@
-name: Deploy Sarasa Catering to GitHub Pages
+name: Deploy Sajian Catering to GitHub Pages
 
 on:
   push:
@@ -15,20 +15,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  test-and-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+      - name: Install & Test Backend
+        working-directory: backend
+        run: |
+          npm ci
+          npm test
+      - name: Install, Test & Build Frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "./dist"
+
+  deploy:
+    needs: test-and-build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

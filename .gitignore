@@ -1,14 +1,25 @@
-# Node & Local cache
+# Dependencies & Build Outputs
 node_modules/
-*.log
-.DS_Store
-Thumbs.db
+backend/node_modules/
+dist/
+coverage/
+.vite/
 
-# Scratch & Editor
-.vscode/
-.idea/
+# Local Database & Runtime
+backend/data/*.db*
+*.log
 *.tmp
 
-# Secrets & Environment
+# OS & Editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment & Secrets
 .env
 .env.*
+backend/.env
+backend/.env.*
+!.env.example
+!backend/.env.example
