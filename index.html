@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sarasa Catering — Interactive Culinary Showcase</title>
+  <meta name="description" content="Sarasa Catering — Interactive Culinary Showcase, kalkulator estimasi paket catering, kalender kapasitas dapur, dan sistem manajemen pesanan terpadu." />
+  <meta property="og:title" content="Sarasa Catering — Interactive Culinary Showcase" />
+  <meta property="og:description" content="Jelajahi paket prasmanan, nasi kotak, tumpeng, dan gubukan live stall dengan simulasi biaya instan." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23064E3B'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23FBBF24' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='8' fill='%23FBBF24'/%3E%3C/svg%3E" />
+
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18 UMD -->
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone (Pinned ke v7.23.6 agar menggunakan classic React.createElement runtime) -->
+  <script crossorigin src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    #root { min-height: 100vh; }
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: #F5F3EE; z-index: 9999; flex-direction: column; gap: 16px;
+      transition: opacity .4s ease;
+    }
+    #loading .spinner {
+      width: 44px; height: 44px; border: 3px solid #D1FAE5;
+      border-top-color: #064E3B; border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media print {
+      header, .no-print { display: none !important; }
+      body { background: #ffffff !important; }
+      .printable-invoice-backdrop {
+        position: static !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        padding: 0 !important;
+      }
+      .printable-invoice-card {
+        box-shadow: none !important;
+        border: 1px solid #d6d3d1 !important;
+        max-width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-[#F5F3EE]">
+  <!-- Loading Screen Awal -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p style="color:#064E3B; font-weight:600; font-size:13px; letter-spacing:.08em">MEMUAT SARASA CATERING…</p>
+  </div>
+
+  <!-- Container Utama React -->
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    /* @jsx React.createElement */
+    /* @jsxFrag React.Fragment */
+    /* ============================================================
+       1. GLOBAL HANDLES & SAFE ICON FALLBACK SYSTEM
+    ============================================================ */
+    const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+    // Pembuat komponen SVG inline seandainya CDN Lucide lambat/terblokir
+    const makeSvgIcon = (paths) => ({ className = 'w-4 h-4', ...props }) => (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        {...props}
+      >
+        {paths}
+      </svg>
+    );
+
+    const FALLBACK_ICONS = {
+      Utensils: makeSvgIcon(<><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>),
+      Calendar: makeSvgIcon(<><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>),
+      CheckCircle2: makeSvgIcon(<><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>),
+      ShieldCheck: makeSvgIcon(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></>),
+      ChefHat: makeSvgIcon(<><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" x2="18" y1="17" y2="17"/></>),
+      FileText: makeSvgIcon(<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></>),
+      Plus: makeSvgIcon(<><path d="M5 12h14"/><path d="M12 5v14"/></>),
+      Search: makeSvgIcon(<><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>),
+      Users: makeSvgIcon(<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>),
+      Wallet: makeSvgIcon(<><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></>),
+      AlertCircle: makeSvgIcon(<><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>),
+      Sparkles: makeSvgIcon(<><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></>),
+      Copy: makeSvgIcon(<><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></>),
+      Check: makeSvgIcon(<><polyline points="20 6 9 17 4 12"/></>),
+      Printer: makeSvgIcon(<><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></>),
+      X: makeSvgIcon(<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>),
+      ArrowRight: makeSvgIcon(<><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>),
+      Package: makeSvgIcon(<><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></>),
+      RotateCcw: makeSvgIcon(<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>),
+      MessageCircle: makeSvgIcon(<><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></>),
+      ChevronRight: makeSvgIcon(<><path d="m9 18 6-6-6-6"/></>),
+      ChevronLeft: makeSvgIcon(<><path d="m15 18-6-6 6-6"/></>),
+      Store: makeSvgIcon(<><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></>),
+      LayoutDashboard: makeSvgIcon(<><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></>),
+      ShoppingBag: makeSvgIcon(<><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></>),
+      Play: makeSvgIcon(<><polygon points="5 3 19 12 5 21 5 3"/></>),
+      ThumbsUp: makeSvgIcon(<><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></>),
+      Star: makeSvgIcon(<><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>),
+      Award: makeSvgIcon(<><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></>),
+      Flame: makeSvgIcon(<><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></>)
+    };
+
+    const LucideSource = window.LucideReact || window.lucideReact || {};
+    const {
+      Utensils = FALLBACK_ICONS.Utensils,
+      Calendar = FALLBACK_ICONS.Calendar,
+      CheckCircle2 = FALLBACK_ICONS.CheckCircle2,
+      ShieldCheck = FALLBACK_ICONS.ShieldCheck,
+      ChefHat = FALLBACK_ICONS.ChefHat,
+      FileText = FALLBACK_ICONS.FileText,
+      Plus = FALLBACK_ICONS.Plus,
+      Search = FALLBACK_ICONS.Search,
+      Users = FALLBACK_ICONS.Users,
+      Wallet = FALLBACK_ICONS.Wallet,
+      AlertCircle = FALLBACK_ICONS.AlertCircle,
+      Sparkles = FALLBACK_ICONS.Sparkles,
+      Copy = FALLBACK_ICONS.Copy,
+      Check = FALLBACK_ICONS.Check,
+      Printer = FALLBACK_ICONS.Printer,
+      X = FALLBACK_ICONS.X,
+      ArrowRight = FALLBACK_ICONS.ArrowRight,
+      Package = FALLBACK_ICONS.Package,
+      RotateCcw = FALLBACK_ICONS.RotateCcw,
+      MessageCircle = FALLBACK_ICONS.MessageCircle,
+      ChevronRight = FALLBACK_ICONS.ChevronRight,
+      ChevronLeft = FALLBACK_ICONS.ChevronLeft,
+      Store = FALLBACK_ICONS.Store,
+      LayoutDashboard = FALLBACK_ICONS.LayoutDashboard,
+      ShoppingBag = FALLBACK_ICONS.ShoppingBag,
+      Play = FALLBACK_ICONS.Play,
+      ThumbsUp = FALLBACK_ICONS.ThumbsUp,
+      Star = FALLBACK_ICONS.Star,
+      Award = FALLBACK_ICONS.Award,
+      Flame = FALLBACK_ICONS.Flame
+    } = LucideSource;
+
+    /* ============================================================
+       2. UTILITAS & KONFIGURASI BRAND
+    ============================================================ */
+    const SARASA_CONFIG = {
+      brandName: 'SARASA CATERING',
+      whatsappNumber: '6281200000000',
+      phoneDisplay: '0812-0000-0000',
+      address: 'Jl. Raya Kuliner No. 88, Jakarta'
+    };
+
+    const formatRupiah = (amount) =>
+      new Intl.NumberFormat('id-ID', {
+        style: 'currency', currency: 'IDR',
+        minimumFractionDigits: 0, maximumFractionDigits: 0
+      }).format(amount || 0);
+
+    const getDateOffset = (daysOffset = 0) => {
+      const date = new Date();
+      date.setDate(date.getDate() + daysOffset);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
+    const formatTanggalIndo = (dateStr, includeDay = true) => {
+      if (!dateStr) return '-';
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      return d.toLocaleDateString('id-ID',
+        includeDay
+          ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+          : { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    const getSplitTitle = (pkg) => {
+      if (pkg.titleLine1 && pkg.titleLine2) return { line1: pkg.titleLine1, line2: pkg.titleLine2 };
+      const words = (pkg.name || 'SAJIAN NUSANTARA').toUpperCase().split(' ');
+      if (words.length <= 1) return { line1: 'PAKET SPESIAL', line2: words[0] };
+      const half = Math.ceil(words.length / 2);
+      return { line1: words.slice(0, half).join(' '), line2: words.slice(half).join(' ') };
+    };
+
+    const copyTextSafe = (text) => {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch (e) {
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(text);
+        }
+      }
+    };
+
+    /* ============================================================
+       3. HOOKS
+    ============================================================ */
+    function useScrollReveal(options = {}) {
+      const ref = useRef(null);
+      const [isVisible, setIsVisible] = useState(false);
+      useEffect(() => {
+        if (!ref.current) return;
+        const observer = new IntersectionObserver(
+          ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
+          { threshold: 0.12, rootMargin: '0px 0px -40px 0px', ...options }
+        );
+        observer.observe(ref.current);
+        return () => observer.disconnect();
+      }, []);
+      return [ref, isVisible];
+    }
+
+    function useCountUp(target, duration = 1400) {
+      const [value, setValue] = useState(0);
+      const rafRef = useRef();
+      useEffect(() => {
+        const start = performance.now();
+        const from = 0;
+        const to = Number(target) || 0;
+        const tick = (now) => {
+          const t = Math.min(1, (now - start) / duration);
+          const eased = 1 - Math.pow(1 - t, 3);
+          setValue(Math.floor(from + (to - from) * eased));
+          if (t < 1) rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafRef.current);
+      }, [target, duration]);
+      return value;
+    }
+
+    function useMagnetic(strength = 14) {
+      const ref = useRef(null);
+      const handleMove = useCallback((e) => {
+        const el = ref.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left - r.width / 2;
+        const y = e.clientY - r.top - r.height / 2;
+        el.style.transform = `translate(${(x / r.width) * strength}px, ${(y / r.height) * strength}px)`;
+      }, [strength]);
+      const handleLeave = useCallback(() => {
+        if (ref.current) ref.current.style.transform = 'translate(0,0)';
+      }, []);
+      return { ref, onMouseMove: handleMove, onMouseLeave: handleLeave };
+    }
+
+    /* ============================================================
+       4. REUSABLE COMPONENTS
+    ============================================================ */
+    function Reveal({ children, delay = 0, y = 24, className = '', as: Tag = 'div' }) {
+      const [ref, visible] = useScrollReveal();
+      return (
+        <Tag
+          ref={ref}
+          className={`reveal-base ${visible ? 'reveal-in' : ''} ${className}`}
+          style={{ transitionDelay: `${delay}ms`, '--reveal-y': `${y}px` }}
+        >
+          {children}
+        </Tag>
+      );
+    }
+
+    function AnimatedCounter({ value, prefix = 'Rp ', className = '' }) {
+      const [ref, visible] = useScrollReveal();
+      const n = useCountUp(visible ? value : 0, 1200);
+      return (
+        <span ref={ref} className={className}>
+          {prefix}{new Intl.NumberFormat('id-ID').format(n)}
+        </span>
+      );
+    }
+
+    function MagneticButton({ children, className = '', as = 'button', ...props }) {
+      const m = useMagnetic(10);
+      const Tag = as;
+      return (
+        <Tag {...m} className={`magnetic-btn ${className}`} {...props}>
+          {children}
+        </Tag>
+      );
+    }
+
+    function FloatingOrbs() {
+      return (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="orb orb-emerald" />
+          <div className="orb orb-amber" />
+          <div className="orb orb-gold" />
+        </div>
+      );
+    }
+
+    /* ============================================================
+       5. DATA AWAL (KATALOG & PESANAN)
+    ============================================================ */
+    const INITIAL_PACKAGES = [
+      {
+        id: 'pkg-1', name: 'Royal Buffet Nusantara',
+        titleLine1: 'ROYAL BUFFET', titleLine2: 'NUSANTARA',
+        rankLabel: '#1 Paket Paling Dicintai', category: 'Prasmanan', plateStyle: 'buffet',
+        accentTint: '#064E3B', price: 68000, hpp: 38000, minOrder: 50, rating: '4.9', likes: 184,
+        chefName: 'Chef Feny Maharani', chefTitle: 'Executive Nusantara Culinary Director',
+        chefQuote: 'Paduan rempah autentik rendang sapi pilihan dan ayam bakar madu yang dimasak perlahan selama 6 jam, menghadirkan kemewahan jamuan keraton di setiap suapan tamu Anda.',
+        videoDuration: '02:15',
+        videoHighlights: ['Chafing Dish Kuningan & Pemanas Roll-Top Gold', 'Meja Prasmanan Dekorasi Kain Zamrud & Bunga Segar', '2 Pramusaji Berseragam Batik Sarasa per 100 Pax'],
+        items: ['Nasi Putih Pandan Wangi Organik', 'Rendang Daging Sapi Sengkel Empuk', 'Ayam Bakar Madu Rempah Nusantara', 'Sambal Goreng Kentang Ati Sapi', 'Capcay Seafood Kuah Kental Segar', 'Kerupuk Udang Sidoarjo & Sambal Bajak', 'Es Buah Cocktail Nata de Coco']
+      },
+      {
+        id: 'pkg-2', name: 'Nasi Kotak Executive',
+        titleLine1: 'NASI KOTAK', titleLine2: 'EXECUTIVE',
+        rankLabel: '#2 Favorit Acara Korporat', category: 'Nasi Box', plateStyle: 'bento',
+        accentTint: '#92400E', price: 42000, hpp: 23500, minOrder: 25, rating: '4.8', likes: 142,
+        chefName: 'Chef Adin Salman', chefTitle: 'Head of Bento & Corporate Gastronomy',
+        chefQuote: 'Kemasan premium bersekat higienis dengan komposisi gizi seimbang. Didesain khusus agar suhu, aroma pandan, dan tekstur renyah lauk tetap sempurna saat dibuka oleh kolega penting Anda.',
+        videoDuration: '01:45',
+        videoHighlights: ['Kotak Hardbox Eksklusif Motif Emboss Emas', 'Sendok Garpu Biodegradable + Tisu Basah Antiseptik', 'Segel Keamanan Waktu Masak (Quality Time Seal)'],
+        items: ['Nasi Putih Pulen Tabur Bawang Goreng', 'Empal Gepuk Daging Sapi Serundeng', 'Ayam Goreng Lengkuas Gurih', 'Tumis Buncis Putren Udang Kupas', 'Telur Pindang Marmer & Sambal Terasi', 'Pisang Cavendish & Air Mineral 330ml']
+      },
+      {
+        id: 'pkg-3', name: 'Tumpeng Agung Keraton',
+        titleLine1: 'TUMPENG AGUNG', titleLine2: 'KERATON',
+        rankLabel: '#3 Ikon Syukuran & Peresmian', category: 'Tumpeng', plateStyle: 'tumpeng',
+        accentTint: '#B45309', price: 48000, hpp: 26000, minOrder: 25, rating: '4.9', likes: 219,
+        chefName: 'Chef Reza Prakoso', chefTitle: 'Traditional Heritage & Carving Specialist',
+        chefQuote: 'Simbol rasa syukur tertinggi dengan nasi kuning kunyit peras asli dan santan kental. Dihiasi ukiran sayuran segar (garnish art) buatan tangan yang memukau untuk momen potong tumpeng.',
+        videoDuration: '02:30',
+        videoHighlights: ['Tampah Bambu Anyam Eksklusif Berhias Daun Pisang Raja', 'Ukiran Garnish Wortel, Lobak & Cabai Merah (Food Carving)', 'Gratis Pisau Potong Tumpeng Berpita Emas & Piring Saji'],
+        items: ['Nasi Kuning Gurih Rempah Daun Jeruk', 'Ayam Ingkung Bakar Bumbu Rujak', 'Urap Sayuran Kelapa Muda Sangrai', 'Perkedel Kentang Daging Cincang', 'Kering Tempe Kacang Teri Medan', 'Telur Dadar Rawis & Sambal Goreng Ati', 'Lalapan Segar & Sambal Bawang']
+      },
+      {
+        id: 'pkg-4', name: 'Gubukan Kambing Guling',
+        titleLine1: 'GUBUKAN SPESIAL', titleLine2: 'KAMBING GULING',
+        rankLabel: '#4 Primadona Live Cooking', category: 'Prasmanan', plateStyle: 'roast',
+        accentTint: '#047857', price: 58000, hpp: 33000, minOrder: 40, rating: '4.7', likes: 165,
+        chefName: 'Chef K Semy', chefTitle: 'Master Grill & Live Stall Specialist',
+        chefQuote: 'Daging kambing muda pilihan yang dimarinasi 12 macam rempah Nusantara dan dipanggang langsung di lokasi acara. Bebas bau prengus, bertekstur lembut, dan berpadu sempurna dengan saus kecap lada hitam.',
+        videoDuration: '01:55',
+        videoHighlights: ['Pemanggang Berputar Stainless Steel + Chef Live Carving', 'Pendamping Lontong Daun Pisang & Gulai Kambing Hangat', 'Aroma Bakaran Rempah Menggugah Selera Tamu Undangan'],
+        items: ['Irisan Daging Kambing Guling Muda Panggang', 'Lontong Daun Pisang Pulen Hangat', 'Kuah Gulai Rempah Kental Pendamping', 'Saus Kecap Manis Bawang Merah & Cabai Rawit', 'Acar Timun Nanas Wortel Segar', 'Kerupuk Emping Melinjo Gurih', 'Es Jeruk Kelapa Muda Segar']
+      }
+    ];
+
+    const STALL_OPTIONS = [
+      { id: 'stall-zuppa', name: 'Zuppa Soup Creamy Puff', price: 22000, description: 'Sup krim ayam jamur jagung hangat berlapis puff pastry renyah keemasan.' },
+      { id: 'stall-sate', name: 'Sate Ayam Madura & Lontong', price: 20000, description: '5 tusuk sate ayam dada/paha bumbu kacang sangrai kental & lontong daun.' },
+      { id: 'stall-kambing', name: 'Pondokan Kambing Guling Live', price: 35000, description: 'Irisan kambing guling muda panggang di tempat lengkap dengan lontong & saus.' },
+      { id: 'stall-gelato', name: 'Royal Gelato & Sorbet Bar', price: 18000, description: 'Pilihan gelato vanilla bean, Belgian chocolate, dan mango sorbet segar.' }
+    ];
+
+    const getInitialOrders = () => {
+      const d3 = getDateOffset(3), d5 = getDateOffset(5), d8 = getDateOffset(8);
+      return [
+        { id: 'SRS-2026-001', customerName: 'Ibu Ratna Kusuma', whatsapp: '0812-8890-1122', eventDate: d3, eventTime: '11:30', address: 'Jl. Melati Indah No. 45, Kebayoran Baru, Jakarta Selatan', notes: 'Mohon meja prasmanan disiapkan bernuansa hijau zamrud & emas. Sambal dipisah.', packageId: 'pkg-1', packageName: 'Royal Buffet Nusantara', packagePrice: 68000, pax: 120, stalls: [{ id: 'stall-zuppa', name: 'Zuppa Soup Creamy Puff', price: 22000, pax: 100 }, { id: 'stall-gelato', name: 'Royal Gelato & Sorbet Bar', price: 18000, pax: 100 }], totalAmount: 120 * 68000 + 100 * 22000 + 100 * 18000, dpAmount: 6080000, status: 'Diproses Dapur', createdAt: getDateOffset(-2) },
+        { id: 'SRS-2026-002', customerName: 'Bapak Hendra Wijaya (PT Maju Bersama)', whatsapp: '0811-2345-6789', eventDate: d3, eventTime: '12:00', address: 'Gedung Graha Kirana Lt. 8, Jl. Yos Sudarso Kav. 88, Jakarta Utara', notes: 'Kirim ke lobi loading dock, hubungi resepsionis Rina setibanya di lokasi.', packageId: 'pkg-2', packageName: 'Nasi Kotak Executive', packagePrice: 42000, pax: 80, stalls: [], totalAmount: 80 * 42000, dpAmount: 1680000, status: 'DP Lunas', createdAt: getDateOffset(-1) },
+        { id: 'SRS-2026-003', customerName: 'dr. Amanda Putri', whatsapp: '0856-7712-9034', eventDate: d5, eventTime: '18:30', address: 'Cluster Green Mansion Blok C2 No. 10, Bintaro Sektor 7', notes: 'Acara syukuran rumah baru, tamu mulai hadir jam 19.00 WIB.', packageId: 'pkg-3', packageName: 'Tumpeng Agung Keraton', packagePrice: 48000, pax: 60, stalls: [{ id: 'stall-sate', name: 'Sate Ayam Madura & Lontong', price: 20000, pax: 60 }], totalAmount: 60 * 48000 + 60 * 20000, dpAmount: 2040000, status: 'Menunggu DP', createdAt: getDateOffset(0) },
+        { id: 'SRS-2026-004', customerName: 'Bapak Dimas Pratama', whatsapp: '0813-9900-4455', eventDate: d8, eventTime: '10:00', address: 'Jl. Wijaya Kusuma No. 19, Pondok Indah, Jakarta Selatan', notes: 'Mohon live stall siap dipanggang 45 menit sebelum acara.', packageId: 'pkg-4', packageName: 'Gubukan Kambing Guling', packagePrice: 58000, pax: 50, stalls: [], totalAmount: 50 * 58000, dpAmount: 1450000, status: 'Dikirim', createdAt: getDateOffset(0) }
+      ];
+    };
+
+    /* ============================================================
+       6. PLATE SVG ILLUSTRATION
+    ============================================================ */
+    const TopDownPlateSVG = ({ styleType = 'buffet', size = 'large' }) => {
+      const dim = size === 'large' ? 'w-64 h-64 sm:w-80 sm:h-80 lg:w-[340px] lg:h-[340px]' : 'w-14 h-14';
+      return (
+        <div className={`relative select-none ${dim} flex items-center justify-center`}>
+          <div className={`absolute rounded-full bg-stone-900/20 blur-xl ${size === 'large' ? 'inset-4 translate-y-5 -translate-x-2' : 'inset-1 translate-y-1.5'}`} />
+          <svg viewBox="0 0 300 300" className="w-full h-full relative z-10 overflow-visible">
+            <defs>
+              <radialGradient id="plateRim" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" stopColor="#FFFFFF" /><stop offset="72%" stopColor="#F5F3EE" />
+                <stop offset="92%" stopColor="#E4DFD3" /><stop offset="100%" stopColor="#D0C9B8" />
+              </radialGradient>
+              <radialGradient id="plateInner" cx="50%" cy="45%" r="50%">
+                <stop offset="0%" stopColor="#FFFFFF" /><stop offset="85%" stopColor="#FAF8F5" /><stop offset="100%" stopColor="#EAE5D9" />
+              </radialGradient>
+              <linearGradient id="goldTrim" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FDE68A" /><stop offset="50%" stopColor="#D97706" /><stop offset="100%" stopColor="#92400E" />
+              </linearGradient>
+              <radialGradient id="tumpengCone" cx="45%" cy="45%" r="50%">
+                <stop offset="0%" stopColor="#FEF08A" /><stop offset="60%" stopColor="#FACC15" /><stop offset="100%" stopColor="#CA8A04" />
+              </radialGradient>
+            </defs>
+            <circle cx="150" cy="150" r="142" fill="url(#plateRim)" />
+            <circle cx="150" cy="150" r="136" fill="none" stroke="url(#goldTrim)" strokeWidth="2.5" opacity="0.75" />
+            <circle cx="150" cy="150" r="108" fill="url(#plateInner)" stroke="#E5E0D5" strokeWidth="2" />
+            {styleType === 'buffet' && (<g>
+              <path d="M 65 140 Q 95 70 175 75 Q 230 105 220 175 Q 165 235 85 205 Z" fill="#065F46" opacity="0.9" />
+              <circle cx="122" cy="125" r="42" fill="#FFFDF9" stroke="#E7E5E4" strokeWidth="2" />
+              <circle cx="116" cy="120" r="3" fill="#047857" /><circle cx="126" cy="126" r="2.5" fill="#047857" />
+              <path d="M 114 114 Q 122 105 130 116" stroke="#059669" strokeWidth="3" fill="none" strokeLinecap="round" />
+              <g transform="translate(155, 92)">
+                <path d="M 0 18 Q 20 -5 45 10 Q 55 32 32 46 Q 8 48 0 18 Z" fill="#451A03" />
+                <path d="M 6 20 Q 22 4 38 14 Q 44 28 28 38 Z" fill="#78350F" />
+                <path d="M -8 40 Q 12 25 34 38 Q 42 58 18 65 Q -5 62 -8 40 Z" fill="#571D06" />
+                <circle cx="20" cy="24" r="2" fill="#F59E0B" /><circle cx="28" cy="30" r="1.8" fill="#EF4444" /><circle cx="14" cy="48" r="2.2" fill="#F59E0B" />
+              </g>
+              <g transform="translate(88, 162)">
+                <path d="M 0 15 Q 35 -5 72 12 Q 82 36 52 50 Q 15 48 0 15 Z" fill="#9A3412" />
+                <path d="M 10 18 Q 38 5 62 18 Q 66 32 45 40 Z" fill="#C2410C" />
+                <line x1="20" y1="14" x2="30" y2="38" stroke="#431407" strokeWidth="3" strokeLinecap="round" />
+                <line x1="36" y1="12" x2="46" y2="38" stroke="#431407" strokeWidth="3" strokeLinecap="round" />
+                <line x1="52" y1="15" x2="58" y2="34" stroke="#431407" strokeWidth="3" strokeLinecap="round" />
+              </g>
+              <circle cx="195" cy="182" r="11" fill="#DC2626" /><circle cx="192" cy="179" r="3" fill="#FCA5A5" />
+              <circle cx="176" cy="198" r="10" fill="#EF4444" /><circle cx="173" cy="195" r="2.5" fill="#FCA5A5" />
+              <circle cx="210" cy="164" r="9" fill="#16A34A" />
+            </g>)}
+            {styleType === 'bento' && (<g>
+              <circle cx="115" cy="110" r="34" fill="#15803D" /><circle cx="135" cy="95" r="26" fill="#16A34A" /><circle cx="95" cy="128" r="25" fill="#22C55E" />
+              <circle cx="110" cy="102" r="4" fill="#FEF08A" /><circle cx="128" cy="112" r="3.5" fill="#FFFFFF" />
+              <circle cx="102" cy="122" r="4" fill="#FDE047" /><circle cx="138" cy="94" r="3" fill="#EF4444" />
+              <rect x="110" y="112" width="106" height="64" rx="14" transform="rotate(14 160 144)" fill="#F59E0B" stroke="#B45309" strokeWidth="2" />
+              <rect x="118" y="118" width="90" height="50" rx="10" transform="rotate(14 160 144)" fill="#FBBF24" />
+              <circle cx="162" cy="142" r="7" fill="#15803D" /><circle cx="172" cy="148" r="5" fill="#16A34A" />
+              <g stroke="#D97706" strokeWidth="3.5" strokeLinecap="round" fill="none">
+                <path d="M 92 175 Q 115 162 138 184" /><path d="M 102 188 Q 130 172 152 196" />
+                <path d="M 88 195 Q 118 188 142 208" /><path d="M 115 168 Q 145 182 162 175" /><path d="M 98 206 Q 128 198 156 188" />
+              </g>
+            </g>)}
+            {styleType === 'tumpeng' && (<g>
+              <circle cx="150" cy="150" r="96" fill="#064E3B" />
+              <circle cx="150" cy="150" r="88" fill="#047857" stroke="#F59E0B" strokeWidth="2" strokeDasharray="8 4" />
+              <circle cx="95" cy="110" r="20" fill="#16A34A" /><circle cx="95" cy="110" r="12" fill="#ECFCCB" opacity="0.8" />
+              <ellipse cx="204" cy="112" rx="22" ry="15" transform="rotate(25 204 112)" fill="#9A3412" />
+              <circle cx="206" cy="184" r="19" fill="#DC2626" />
+              <rect x="198" y="176" width="8" height="8" rx="2" fill="#FBBF24" /><rect x="208" y="184" width="8" height="8" rx="2" fill="#FBBF24" />
+              <circle cx="94" cy="186" r="18" fill="#D97706" /><circle cx="150" cy="216" r="16" fill="#FDE047" />
+              <circle cx="150" cy="150" r="52" fill="url(#tumpengCone)" stroke="#B45309" strokeWidth="2" />
+              <circle cx="144" cy="144" r="30" fill="#FEF08A" opacity="0.6" />
+              <circle cx="150" cy="150" r="10" fill="#DC2626" /><circle cx="142" cy="145" r="5" fill="#15803D" />
+            </g>)}
+            {styleType === 'roast' && (<g>
+              <circle cx="150" cy="150" r="88" fill="#FDE68A" />
+              <path d="M 100 135 Q 145 90 195 130 Q 210 180 155 205 Q 95 195 100 135 Z" fill="#F59E0B" opacity="0.45" />
+              <path d="M 118 145 A 34 34 0 1 1 182 155" stroke="#B45309" strokeWidth="6" fill="none" strokeLinecap="round" />
+              <g transform="translate(115, 110)">
+                <rect x="0" y="12" width="38" height="24" rx="8" transform="rotate(-12)" fill="#78350F" />
+                <rect x="26" y="4" width="42" height="26" rx="8" transform="rotate(15)" fill="#451A03" />
+                <rect x="10" y="34" width="44" height="25" rx="8" transform="rotate(6)" fill="#92400E" />
+                <circle cx="28" cy="26" r="3.5" fill="#EF4444" /><circle cx="42" cy="34" r="4" fill="#16A34A" /><circle cx="20" cy="40" r="3" fill="#FBBF24" />
+              </g>
+              <circle cx="96" cy="165" r="14" fill="#ECFCCB" stroke="#15803D" strokeWidth="4" />
+              <circle cx="198" cy="168" r="14" fill="#ECFCCB" stroke="#15803D" strokeWidth="4" />
+            </g>)}
+          </svg>
+        </div>
+      );
+    };
+
+    /* ============================================================
+       7. GLOBAL CSS ANIMATIONS
+    ============================================================ */
+    const GLOBAL_CSS = `
+      :root {
+        --ease-out-cubic: cubic-bezier(0.22, 1, 0.36, 1);
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      @keyframes plateArcEntry {
+        0% { opacity: 0; transform: translate(190px, -230px) rotate(-135deg) scale(0.72); }
+        60% { opacity: 1; }
+        100% { opacity: 1; transform: translate(0,0) rotate(0) scale(1); }
+      }
+      @keyframes ribbonArcEntry {
+        0% { opacity: 0; transform: translate(80px, -90px) rotate(-8deg) scale(0.92); }
+        100% { opacity: 1; transform: translate(0,0) rotate(0) scale(1); }
+      }
+      @keyframes titleLineTopSlide {
+        0% { opacity: 0; transform: translateX(70px); letter-spacing: 0.35em; }
+        100% { opacity: 1; transform: translateX(0); letter-spacing: 0.14em; }
+      }
+      @keyframes titleLineBottomSlide {
+        0% { opacity: 0; transform: translateX(-65px) translateY(12px); }
+        100% { opacity: 1; transform: translateX(0) translateY(0); }
+      }
+      @keyframes rightCardReveal {
+        0% { opacity: 0; transform: translateY(22px) scale(0.98); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes floatY {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-14px); }
+      }
+      @keyframes rotateSlow {
+        from { transform: rotate(0); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes shimmerSweep {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      @keyframes gradientShift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+      @keyframes pulseRing {
+        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+        70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+      }
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); }
+        50% { box-shadow: 0 0 20px 3px rgba(245, 158, 11, 0.45); }
+      }
+      @keyframes slideInRight {
+        0% { opacity: 0; transform: translateX(40px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes scaleIn {
+        0% { opacity: 0; transform: scale(0.88) translateY(10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      @keyframes backdropZoom {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+      @keyframes fadeIn {
+        0% { opacity: 0; transform: translateY(8px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slideStagger {
+        0% { opacity: 0; transform: translateX(-8px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes growX {
+        0% { transform: scaleX(0); transform-origin: left; }
+        100% { transform: scaleX(1); transform-origin: left; }
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-6px); }
+        40%, 80% { transform: translateX(6px); }
+      }
+      @keyframes orbFloatA {
+        0%, 100% { transform: translate(0,0) scale(1); }
+        50% { transform: translate(60px, -40px) scale(1.1); }
+      }
+      @keyframes orbFloatB {
+        0%, 100% { transform: translate(0,0) scale(1); }
+        50% { transform: translate(-50px, 50px) scale(0.9); }
+      }
+
+      .animate-plate-arc { animation: plateArcEntry 0.78s var(--ease-out-cubic) forwards; }
+      .animate-ribbon-arc { animation: ribbonArcEntry 0.75s var(--ease-out-cubic) forwards; }
+      .animate-title-top { animation: titleLineTopSlide 0.62s var(--ease-out-cubic) forwards; }
+      .animate-title-bottom { animation: titleLineBottomSlide 0.68s var(--ease-out-cubic) 0.06s both; }
+      .animate-card-reveal { animation: rightCardReveal 0.55s var(--ease-out-cubic) 0.08s both; }
+      .animate-float { animation: floatY 5s ease-in-out infinite; }
+      .animate-rotate-slow { animation: rotateSlow 22s linear infinite; }
+      .animate-glow { animation: glow 2.6s ease-in-out infinite; }
+      .animate-pulse-ring { animation: pulseRing 2.4s ease-out infinite; }
+      .animate-slide-in-right { animation: slideInRight 0.4s var(--ease-out-cubic) both; }
+      .animate-scale-in { animation: scaleIn 0.42s var(--ease-spring) both; }
+      .animate-backdrop-zoom { animation: backdropZoom 0.3s ease-out both; }
+      .animate-fade-in { animation: fadeIn 0.35s ease-out both; }
+      .animate-slide-stagger { animation: slideStagger 0.35s ease-out both; }
+      .animate-grow-x { animation: growX 0.4s var(--ease-out-cubic) both; }
+      .animate-shake { animation: shake 0.4s ease-in-out; }
+
+      .shimmer-btn {
+        position: relative; overflow: hidden;
+        background-image: linear-gradient(90deg, #FBBF24 0%, #FCD34D 25%, #F59E0B 50%, #FCD34D 75%, #FBBF24 100%);
+        background-size: 200% 100%;
+        animation: gradientShift 4s ease-in-out infinite;
+      }
+      .shimmer-btn::after {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%);
+        background-size: 200% 100%;
+        animation: shimmerSweep 2.6s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      .magnetic-btn {
+        transition: transform 0.25s var(--ease-out-cubic), box-shadow 0.25s var(--ease-out-cubic);
+        will-change: transform;
+      }
+
+      .reveal-base {
+        opacity: 0;
+        transform: translateY(var(--reveal-y, 24px));
+        transition: opacity 0.7s var(--ease-out-cubic), transform 0.7s var(--ease-out-cubic);
+      }
+      .reveal-in { opacity: 1; transform: translateY(0); }
+
+      .orb {
+        position: absolute; border-radius: 9999px;
+        filter: blur(40px); opacity: 0.45;
+        pointer-events: none;
+      }
+      .orb-emerald {
+        width: 320px; height: 320px; top: -100px; left: -80px;
+        background: radial-gradient(circle, rgba(6,78,59,0.5), transparent 70%);
+        animation: orbFloatA 14s ease-in-out infinite;
+      }
+      .orb-amber {
+        width: 280px; height: 280px; top: 40%; right: -60px;
+        background: radial-gradient(circle, rgba(245,158,11,0.45), transparent 70%);
+        animation: orbFloatB 16s ease-in-out infinite;
+      }
+      .orb-gold {
+        width: 240px; height: 240px; bottom: -60px; left: 30%;
+        background: radial-gradient(circle, rgba(253,224,71,0.35), transparent 70%);
+        animation: orbFloatA 18s ease-in-out infinite reverse;
+      }
+
+      .tabular-nums { font-variant-numeric: tabular-nums; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        .reveal-base { opacity: 1 !important; transform: none !important; }
+      }
+    `;
+
+    /* ============================================================
+       8. MAIN APP COMPONENT
+    ============================================================ */
+    function App() {
+      const [activeMode, setActiveMode] = useState('customer');
+      const [packages, setPackages] = useState(() => {
+        try { const s = localStorage.getItem('sarasa_pkgs_v2'); return s ? JSON.parse(s) : INITIAL_PACKAGES; } catch { return INITIAL_PACKAGES; }
+      });
+      const [orders, setOrders] = useState(() => {
+        try { const s = localStorage.getItem('sarasa_orders_v2'); return s ? JSON.parse(s) : getInitialOrders(); } catch { return getInitialOrders(); }
+      });
+
+      useEffect(() => { try { localStorage.setItem('sarasa_pkgs_v2', JSON.stringify(packages)); } catch {} }, [packages]);
+      useEffect(() => { try { localStorage.setItem('sarasa_orders_v2', JSON.stringify(orders)); } catch {} }, [orders]);
+
+      const [toastMessage, setToastMessage] = useState(null);
+      const triggerToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage((p) => (p === msg ? null : p)), 3500);
+      };
+
+      const activeOrdersCount = useMemo(() => orders.filter((o) => o.status !== 'Selesai').length, [orders]);
+
+      const calendarDates = useMemo(() => {
+        const manualFullOffsets = [2, 6];
+        const result = [];
+        for (let i = 1; i <= 14; i++) {
+          const dateStr = getDateOffset(i);
+          const ordersOnDate = orders.filter((o) => o.eventDate === dateStr);
+          const bookedPax = ordersOnDate.reduce((sum, o) => sum + o.pax, 0);
+          let status = 'Tersedia';
+          if (manualFullOffsets.includes(i) || bookedPax >= 400) status = 'Penuh';
+          else if (bookedPax > 0 || i === 4 || i === 10) status = 'Slot Terbatas';
+          const [y, m, d] = dateStr.split('-').map(Number);
+          const dObj = new Date(y, m - 1, d);
+          result.push({ dateStr, dayName: dObj.toLocaleDateString('id-ID', { weekday: 'short' }), dayNum: d, monthShort: dObj.toLocaleDateString('id-ID', { month: 'short' }), status, bookedPax });
+        }
+        return result;
+      }, [orders]);
+
+      const handleToggleLikePackage = (pkgId) => {
+        setPackages((prev) => prev.map((p) => p.id === pkgId ? { ...p, likes: p.userLiked ? p.likes - 1 : (p.likes || 120) + 1, userLiked: !p.userLiked } : p));
+      };
+      const handleCreateOrder = (newOrder) => { setOrders((prev) => [newOrder, ...prev]); triggerToast(`Pesanan ${newOrder.id} berhasil masuk ke jadwal dapur Sarasa Catering!`); };
+      const handleUpdateOrderStatus = (orderId, newStatus) => { setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: newStatus } : o)); triggerToast(`Status pesanan ${orderId} diperbarui menjadi "${newStatus}"`); };
+      const handleAddPackage = (newPkg) => { setPackages((prev) => [...prev, newPkg]); triggerToast(`Paket "${newPkg.name}" berhasil ditambahkan ke Katalog & Showcase!`); };
+      const handleResetDemoData = () => {
+        setPackages(INITIAL_PACKAGES); setOrders(getInitialOrders());
+        try {
+          localStorage.removeItem('sarasa_pkgs_v2');
+          localStorage.removeItem('sarasa_orders_v2');
+        } catch {}
+        triggerToast('Data demo berhasil dikembalikan ke pengaturan awal.');
+      };
+
+      return (
+        <div className="min-h-screen bg-[#F5F3EE] text-stone-800 font-sans selection:bg-amber-200 selection:text-emerald-950">
+          <style>{GLOBAL_CSS}</style>
+
+          <header className="sticky top-0 z-40 bg-emerald-950/95 backdrop-blur-md text-white shadow-lg border-b border-emerald-800/80">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md shadow-amber-500/20 animate-glow">
+                  <Utensils className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-lg tracking-tight text-white">SARASA</span>
+                    <span className="text-amber-400 font-light tracking-widest text-sm">CATERING</span>
+                    <span className="hidden md:inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900 text-amber-300 font-semibold border border-amber-500/30">
+                      Royal Heritage
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-300/85">Interactive Culinary Showcase & Sistem Dapur Terpadu</p>
+                </div>
+              </div>
+
+              <div className="flex items-center bg-emerald-900/90 p-1 rounded-xl border border-emerald-700/70 w-full sm:w-auto">
+                <button type="button" onClick={() => setActiveMode('customer')}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 ${activeMode === 'customer' ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-emerald-950 shadow-sm font-bold scale-[1.02]' : 'text-emerald-200 hover:text-white hover:bg-emerald-800/60'}`}>
+                  <Store className="w-4 h-4 shrink-0" /><span>Showcase & Order</span>
+                </button>
+                <button type="button" onClick={() => setActiveMode('admin')}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 ${activeMode === 'admin' ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-emerald-950 shadow-sm font-bold scale-[1.02]' : 'text-emerald-200 hover:text-white hover:bg-emerald-800/60'}`}>
+                  <LayoutDashboard className="w-4 h-4 shrink-0" /><span>Dashboard Admin</span>
+                  <span className={`ml-0.5 px-2 py-0.5 text-xs font-extrabold rounded-full animate-pulse-ring ${activeMode === 'admin' ? 'bg-emerald-950 text-amber-400' : 'bg-amber-500 text-emerald-950'}`}>{activeOrdersCount}</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {toastMessage && (
+            <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-emerald-950 text-white px-4 py-3.5 rounded-2xl shadow-2xl border border-amber-400/60 flex items-center gap-3 animate-slide-in-right">
+              <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+              <p className="text-sm font-medium">{toastMessage}</p>
+            </div>
+          )}
+
+          {activeMode === 'customer' ? (
+            <CustomerInteractiveExperience
+              packages={packages} orders={orders} calendarDates={calendarDates}
+              onToggleLike={handleToggleLikePackage} onCreateOrder={handleCreateOrder}
+              onSwitchToAdmin={() => setActiveMode('admin')}
+            />
+          ) : (
+            <AdminDashboard
+              orders={orders} packages={packages} onUpdateStatus={handleUpdateOrderStatus}
+              onAddPackage={handleAddPackage} onResetDemo={handleResetDemoData}
+              onSwitchToCustomer={() => setActiveMode('customer')}
+            />
+          )}
+        </div>
+      );
+    }
+
+    /* ============================================================
+       9. CUSTOMER INTERACTIVE EXPERIENCE
+    ============================================================ */
+    function CustomerInteractiveExperience({ packages, orders, calendarDates, onToggleLike, onCreateOrder, onSwitchToAdmin }) {
+      const [activeIndex, setActiveIndex] = useState(0);
+      const [animTriggerKey, setAnimTriggerKey] = useState(0);
+      const [rightCardTab, setRightCardTab] = useState('overview');
+      const [videoModalPkg, setVideoModalPkg] = useState(null);
+      const [showOrderTracker, setShowOrderTracker] = useState(false);
+      const [trackerSearch, setTrackerSearch] = useState('');
+
+      const currentShowPkg = packages[activeIndex] || packages[0];
+      const splitTitle = useMemo(() => getSplitTitle(currentShowPkg), [currentShowPkg]);
+
+      const [selectedPkgId, setSelectedPkgId] = useState(packages[0]?.id || '');
+      const [pax, setPax] = useState(packages[0]?.minOrder || 50);
+      const [selectedStalls, setSelectedStalls] = useState({});
+
+      const firstAvailableDate = calendarDates.find((d) => d.status !== 'Penuh')?.dateStr || getDateOffset(3);
+      const [customerName, setCustomerName] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [eventDate, setEventDate] = useState(firstAvailableDate);
+      const [eventTime, setEventTime] = useState('11:30');
+      const [address, setAddress] = useState('');
+      const [notes, setNotes] = useState('');
+      const [formError, setFormError] = useState('');
+      const [confirmedOrder, setConfirmedOrder] = useState(null);
+      const [copiedWa, setCopiedWa] = useState(false);
+
+      const handleSelectShowcaseIndex = (newIdx) => {
+        const total = packages.length;
+        const normalized = ((newIdx % total) + total) % total;
+        setActiveIndex(normalized);
+        setAnimTriggerKey((p) => p + 1);
+        const target = packages[normalized];
+        if (target) {
+          setSelectedPkgId(target.id);
+          setPax((prev) => (prev < target.minOrder ? target.minOrder : prev));
+        }
+      };
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+          if (e.key === 'ArrowRight') handleSelectShowcaseIndex(activeIndex + 1);
+          else if (e.key === 'ArrowLeft') handleSelectShowcaseIndex(activeIndex - 1);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      });
+
+      const activeCalculatorPkg = useMemo(() => packages.find((p) => p.id === selectedPkgId) || packages[0], [packages, selectedPkgId]);
+      const selectedDateInfo = useMemo(() => calendarDates.find((d) => d.dateStr === eventDate), [calendarDates, eventDate]);
+      const isDateFullyBooked = selectedDateInfo?.status === 'Penuh';
+
+      const scrollToCalculatorWithPkg = (pkg) => {
+        if (pkg) { setSelectedPkgId(pkg.id); setPax((prev) => (prev < pkg.minOrder ? pkg.minOrder : prev)); }
+        const el = document.getElementById('booking-calculator-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      };
+
+      const handleToggleStall = (stallId) => {
+        setSelectedStalls((prev) => {
+          const current = prev[stallId];
+          if (current?.selected) { const u = { ...prev }; delete u[stallId]; return u; }
+          return { ...prev, [stallId]: { selected: true, pax: Math.max(40, pax) } };
+        });
+      };
+      const handleStallPaxChange = (stallId, newPax) => {
+        setSelectedStalls((prev) => ({ ...prev, [stallId]: { selected: true, pax: Math.max(10, Number(newPax) || 0) } }));
+      };
+
+      const pricingSummary = useMemo(() => {
+        const pkgPrice = activeCalculatorPkg ? activeCalculatorPkg.price : 0;
+        const validPax = Math.max(0, Number(pax) || 0);
+        const mainSubtotal = pkgPrice * validPax;
+        const stallDetails = [];
+        let stallsSubtotal = 0;
+        STALL_OPTIONS.forEach((s) => {
+          const e = selectedStalls[s.id];
+          if (e?.selected) {
+            const sPax = Math.max(10, Number(e.pax) || validPax);
+            const sub = s.price * sPax;
+            stallsSubtotal += sub;
+            stallDetails.push({ id: s.id, name: s.name, price: s.price, pax: sPax, subtotal: sub });
+          }
+        });
+        const grandTotal = mainSubtotal + stallsSubtotal;
+        const dpAmount = Math.round(grandTotal * 0.5);
+        return { mainSubtotal, stallDetails, stallsSubtotal, grandTotal, dpAmount, remainingAmount: grandTotal - dpAmount };
+      }, [activeCalculatorPkg, pax, selectedStalls]);
+
+      const handleSubmitOrder = (e) => {
+        e.preventDefault(); setFormError('');
+        if (!activeCalculatorPkg) return setFormError('Silakan pilih paket catering terlebih dahulu.');
+        if (Number(pax) < activeCalculatorPkg.minOrder) return setFormError(`Jumlah minimal pemesanan untuk ${activeCalculatorPkg.name} adalah ${activeCalculatorPkg.minOrder} pax.`);
+        if (isDateFullyBooked) return setFormError(`Maaf, tanggal ${formatTanggalIndo(eventDate)} sudah Penuh. Silakan pilih tanggal lain.`);
+        if (!customerName.trim() || !whatsapp.trim() || !address.trim()) return setFormError('Mohon lengkapi Nama Pemesan, Nomor WhatsApp, dan Alamat Pengiriman.');
+
+        const nextNum = String(orders.length + 1).padStart(3, '0');
+        const newOrder = {
+          id: `SRS-2026-${nextNum}`, customerName: customerName.trim(), whatsapp: whatsapp.trim(),
+          eventDate, eventTime, address: address.trim(),
+          notes: notes.trim() || 'Tidak ada catatan tambahan.',
+          packageId: activeCalculatorPkg.id, packageName: activeCalculatorPkg.name,
+          packagePrice: activeCalculatorPkg.price, pax: Number(pax),
+          stalls: pricingSummary.stallDetails.map(({ id, name, price, pax: p }) => ({ id, name, price, pax: p })),
+          totalAmount: pricingSummary.grandTotal, dpAmount: pricingSummary.dpAmount,
+          status: 'Menunggu DP', createdAt: getDateOffset(0)
+        };
+        onCreateOrder(newOrder); setConfirmedOrder(newOrder); setCopiedWa(false);
+        setCustomerName(''); setWhatsapp(''); setAddress(''); setNotes('');
+      };
+
+      const generateWhatsAppText = (o) => {
+        if (!o) return '';
+        const stallLines = o.stalls?.length > 0
+          ? o.stalls.map((s) => `- ${s.name} (${s.pax} pax): ${formatRupiah(s.price * s.pax)}`).join('\n')
+          : '- Tidak ada tambahan pondokan';
+        return `Halo Admin *Sarasa Catering*, saya ingin konfirmasi pesanan berikut:\n\n*Kode Pesanan:* ${o.id}\n*Nama:* ${o.customerName}\n*Tanggal Acara:* ${formatTanggalIndo(o.eventDate)} (${o.eventTime} WIB)\n*Alamat:* ${o.address}\n\n*Paket Utama:* ${o.packageName} (${o.pax} pax)\n*Pondokan (Stall):*\n${stallLines}\n\n*Total Estimasi:* ${formatRupiah(o.totalAmount)}\n*Nominal DP (50%):* ${formatRupiah(o.dpAmount)}\n\nMohon info nomor rekening untuk transfer DP. Terima kasih!`;
+      };
+
+      const handleCopyWaText = (o) => {
+        const text = generateWhatsAppText(o);
+        copyTextSafe(text);
+        setCopiedWa(true); setTimeout(() => setCopiedWa(false), 3000);
+      };
+
+      return (
+        <main className="pb-24">
+          <section className="relative overflow-hidden bg-gradient-to-br from-[#F7F5F0] via-[#EFECE4] to-[#E5E0D4] border-b border-stone-200/80 min-h-[680px] lg:min-h-[730px] flex flex-col justify-between">
+            <FloatingOrbs />
+
+            <div className="pointer-events-none absolute top-0 right-14 hidden xl:flex flex-col items-center z-20 animate-float">
+              <div className="w-[2px] h-32 bg-stone-800/70" />
+              <div className="w-3 h-5 bg-amber-500 rounded-t-sm" />
+              <div className="w-12 h-16 bg-emerald-950 rounded-t-full shadow-xl border-b-2 border-amber-400/60" />
+            </div>
+
+            <div key={`ribbon-${animTriggerKey}`} className="pointer-events-none absolute inset-0 overflow-hidden z-0 animate-ribbon-arc">
+              <svg viewBox="0 0 1440 800" fill="none" className="w-full h-full object-cover" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <linearGradient id="sarasaArcGrad" x1="65%" y1="0%" x2="15%" y2="75%">
+                    <stop offset="0%" stopColor={currentShowPkg.accentTint || '#064E3B'} stopOpacity="0.16" />
+                    <stop offset="55%" stopColor="#D97706" stopOpacity="0.14" />
+                    <stop offset="100%" stopColor={currentShowPkg.accentTint || '#064E3B'} stopOpacity="0.04" />
+                  </linearGradient>
+                </defs>
+                <path d="M 780 -80 C 660 180, 460 360, 260 390 C 140 408, 95 310, 150 220 C 220 110, 450 60, 560 -80 Z" fill="url(#sarasaArcGrad)" />
+                <path d="M 720 -40 C 610 190, 440 340, 250 360" stroke="#D97706" strokeWidth="1.5" strokeDasharray="6 6" opacity="0.35" />
+              </svg>
+            </div>
+
+            <div className="hidden lg:flex flex-col items-center gap-2.5 absolute left-5 top-1/2 -translate-y-1/2 z-20">
+              {packages.map((p, idx) => (
+                <button key={p.id} type="button" onClick={() => handleSelectShowcaseIndex(idx)}
+                  aria-label={`Pilih ${p.name}`}
+                  className={`rounded-full transition-all duration-300 ${idx === activeIndex ? 'w-2 h-7 bg-emerald-900 shadow-sm' : 'w-2 h-2 bg-stone-400/70 hover:bg-amber-600'}`} />
+              ))}
+            </div>
+
+            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-12 pt-8 sm:pt-12 pb-6 relative z-10 flex-1 flex flex-col justify-center">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
+                <div className="lg:col-span-4 flex items-center justify-center relative">
+                  <div className="absolute w-72 h-72 sm:w-80 sm:h-80 rounded-full border border-amber-600/20 pointer-events-none animate-rotate-slow" />
+                  <div key={`plate-${animTriggerKey}`} className="animate-plate-arc cursor-pointer hover:scale-[1.02] transition-transform"
+                    onClick={() => handleSelectShowcaseIndex(activeIndex + 1)}
+                    title="Klik piring untuk memutar ke hidangan berikutnya">
+                    <TopDownPlateSVG styleType={currentShowPkg.plateStyle || 'buffet'} size="large" />
+                  </div>
+                </div>
+
+                <div className="lg:col-span-4 text-center lg:text-left flex flex-col items-center lg:items-start justify-center space-y-4">
+                  <div key={`rank-${animTriggerKey}`} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-600/30 text-amber-900 text-xs sm:text-sm font-bold tracking-wide animate-title-top">
+                    <Award className="w-4 h-4 text-amber-600" />
+                    <span>{currentShowPkg.rankLabel || '#1 Sajian Favorit Sarasa'}</span>
+                  </div>
+
+                  <div className="overflow-hidden py-1">
+                    <h1 className="leading-[1.06] tracking-tight">
+                      <span key={`line1-${animTriggerKey}`} className="block text-3xl sm:text-4xl xl:text-[44px] font-extralight text-stone-700 uppercase animate-title-top">{splitTitle.line1}</span>
+                      <span key={`line2-${animTriggerKey}`} className="block text-4xl sm:text-5xl xl:text-[54px] font-black text-emerald-950 uppercase tracking-tight mt-1 animate-title-bottom">{splitTitle.line2}</span>
+                    </h1>
+                  </div>
+
+                  <div key={`price-${animTriggerKey}`} className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5 animate-card-reveal">
+                    <span className="px-3.5 py-1 rounded-xl bg-emerald-950 text-amber-400 font-extrabold text-sm sm:text-base shadow-sm">
+                      {formatRupiah(currentShowPkg.price)}<span className="text-xs font-normal text-emerald-200"> / pax</span>
+                    </span>
+                    <span className="px-3 py-1 rounded-xl bg-white/80 border border-stone-300 text-stone-700 text-xs font-bold">Min. Order {currentShowPkg.minOrder} Pax</span>
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-100/80 text-emerald-900 text-xs font-bold">{currentShowPkg.category}</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-3">
+                    <MagneticButton type="button" onClick={() => setVideoModalPkg(currentShowPkg)}
+                      className="group inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/85 hover:bg-white text-stone-800 border border-stone-300/90 shadow-sm hover:shadow font-bold text-xs sm:text-sm transition-all">
+                      <span className="w-7 h-7 rounded-lg bg-emerald-950 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      </span>
+                      <span>Lihat Video Penyajian</span>
+                    </MagneticButton>
+                    <MagneticButton type="button" onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+                      className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-900 to-emerald-950 hover:from-emerald-800 hover:to-emerald-900 text-amber-300 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-950/20 border border-amber-500/40 transition-all animate-glow">
+                      <ShoppingBag className="w-4 h-4 text-amber-400" />
+                      <span>Pesan Paket Ini</span>
+                    </MagneticButton>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-4 flex justify-center lg:justify-end">
+                  <div className="w-full max-w-sm bg-white/85 backdrop-blur-xl rounded-3xl border border-white shadow-[0_20px_50px_rgba(6,78,59,0.08)] p-6 space-y-5 hover:shadow-[0_30px_60px_rgba(6,78,59,0.15)] transition-shadow duration-500">
+                    <div className="flex items-center justify-between border-b border-stone-200/80 pb-3">
+                      <button type="button" onClick={() => setRightCardTab('overview')}
+                        className={`text-sm font-bold pb-1 transition-all relative ${rightCardTab === 'overview' ? 'text-emerald-950' : 'text-stone-400 hover:text-stone-600'}`}>
+                        Overview
+                        {rightCardTab === 'overview' && <span className="absolute -bottom-[13px] left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-grow-x" />}
+                      </button>
+                      <button type="button" onClick={() => setRightCardTab('ingredients')}
+                        className={`text-sm font-bold pb-1 transition-all relative ${rightCardTab === 'ingredients' ? 'text-emerald-950' : 'text-stone-400 hover:text-stone-600'}`}>
+                        Rincian Menu ({currentShowPkg.items?.length || 0})
+                        {rightCardTab === 'ingredients' && <span className="absolute -bottom-[13px] left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-grow-x" />}
+                      </button>
+                    </div>
+
+                    <div key={`card-${animTriggerKey}-${rightCardTab}`} className="animate-card-reveal">
+                      {rightCardTab === 'overview' ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-emerald-950 flex flex-col items-center justify-center shadow-lg shadow-amber-500/25 shrink-0 animate-glow">
+                              <span className="text-2xl font-black leading-none tracking-tight">{currentShowPkg.rating || '4.9'}</span>
+                              <Star className="w-4 h-4 fill-emerald-950 text-emerald-950 mt-1" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-extrabold text-emerald-950 leading-snug">{currentShowPkg.chefName}</h3>
+                              <p className="text-xs font-medium text-amber-700">{currentShowPkg.chefTitle}</p>
+                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-800 font-semibold mt-1">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />100% Halal & Food Safety Certified
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">{currentShowPkg.chefQuote}</p>
+                          <div className="pt-2 flex items-center justify-between border-t border-stone-100">
+                            <button type="button" onClick={() => onToggleLike(currentShowPkg.id)}
+                              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 ${currentShowPkg.userLiked ? 'bg-emerald-900 text-amber-300 shadow-sm' : 'bg-stone-100 hover:bg-amber-100/70 text-stone-700'}`}>
+                              <ThumbsUp className="w-3.5 h-3.5" /><span>{currentShowPkg.likes || 128} Suka</span>
+                            </button>
+                            <button type="button" onClick={() => setRightCardTab('ingredients')}
+                              className="text-xs font-bold text-emerald-800 hover:text-amber-700 flex items-center gap-1 group">
+                              <span>Lihat Lauk</span><ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="text-xs font-bold uppercase tracking-wider text-stone-400">Komposisi Hidangan Paket:</p>
+                          <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {currentShowPkg.items.map((item, i) => (
+                              <li key={i} className="text-xs sm:text-sm text-stone-700 flex items-center gap-2.5 bg-stone-50/90 px-3 py-1.5 rounded-xl border border-stone-200/60 animate-slide-stagger" style={{ animationDelay: `${i * 50}ms` }}>
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /><span className="font-medium">{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <button type="button" onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+                            className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]">
+                            <span>Hitung Estimasi {currentShowPkg.name}</span><ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-12 pb-6 relative z-20 space-y-5">
+              <div className="flex items-center justify-center lg:justify-start gap-2 sm:gap-4">
+                <button type="button" onClick={() => handleSelectShowcaseIndex(activeIndex - 1)}
+                  className="w-10 h-10 rounded-full bg-white/90 hover:bg-emerald-950 text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm flex items-center justify-center transition-all hover:scale-110 active:scale-95">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex items-end gap-2.5 sm:gap-4 overflow-x-auto py-3 px-2 no-scrollbar">
+                  {packages.map((pkg, idx) => {
+                    const isActive = idx === activeIndex;
+                    return (
+                      <button key={pkg.id} type="button" onClick={() => handleSelectShowcaseIndex(idx)}
+                        className={`group relative flex flex-col items-center text-center transition-all duration-300 px-3.5 pt-3 pb-3.5 rounded-2xl min-w-[110px] sm:min-w-[126px] ${isActive ? 'bg-white shadow-xl border-2 border-amber-400 -translate-y-2' : 'bg-white/40 hover:bg-white/80 border border-transparent hover:border-stone-300'}`}>
+                        <div className={`transition-transform duration-500 ${isActive ? 'scale-110 rotate-12' : 'group-hover:scale-105'}`}>
+                          <TopDownPlateSVG styleType={pkg.plateStyle} size="small" />
+                        </div>
+                        <span className={`mt-2.5 text-xs leading-tight line-clamp-2 ${isActive ? 'font-extrabold text-emerald-950' : 'font-medium text-stone-600'}`}>{pkg.name}</span>
+                        <span className={`mt-1 text-[10px] font-bold ${isActive ? 'text-amber-700' : 'text-stone-400'}`}>{formatRupiah(pkg.price)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button type="button" onClick={() => handleSelectShowcaseIndex(activeIndex + 1)}
+                  className="w-10 h-10 rounded-full bg-white/90 hover:bg-emerald-950 text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm flex items-center justify-center transition-all hover:scale-110 active:scale-95">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-center lg:justify-start gap-6 sm:gap-9 pt-1">
+                {[
+                  { icon: Utensils, label: 'Semua Paket', onClick: () => document.getElementById('booking-calculator-section')?.scrollIntoView({ behavior: 'smooth' }) },
+                  { icon: Flame, label: 'Gubukan / Stall', onClick: () => document.getElementById('booking-calculator-section')?.scrollIntoView({ behavior: 'smooth' }) },
+                  { icon: FileText, label: 'Cek Pesanan', onClick: () => setShowOrderTracker(true) },
+                  { icon: ChefHat, label: 'Sistem Dapur', onClick: onSwitchToAdmin }
+                ].map(({ icon: Icon, label, onClick }) => (
+                  <button key={label} type="button" onClick={onClick}
+                    className="group flex items-center gap-2 text-stone-600 hover:text-emerald-950 transition-colors">
+                    <div className="p-2.5 rounded-xl bg-white/80 group-hover:bg-emerald-950 group-hover:text-amber-400 border border-stone-300/80 shadow-sm transition-all group-hover:scale-110 group-hover:-translate-y-0.5">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="hidden sm:inline text-xs font-bold">{label}</span>
+                  </button>
+                ))}
+                <MagneticButton type="button" onClick={() => scrollToCalculatorWithPkg(currentShowPkg)}
+                  className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-900 to-emerald-950 text-amber-400 shadow-xl border-2 border-amber-400 flex items-center justify-center hover:scale-110 transition-transform animate-glow">
+                  <Calendar className="w-5 h-5" />
+                </MagneticButton>
+              </div>
+            </div>
+          </section>
+
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+            <Reveal>
+              <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow duration-500">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider">
+                      <Calendar className="w-4 h-4 text-amber-600 animate-pulse" />
+                      <span>Kalender Kapasitas Dapur Real-Time</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-emerald-950 mt-1">Cek Ketersediaan Tanggal Acara (14 Hari ke Depan)</h2>
+                    <p className="text-xs sm:text-sm text-stone-600 mt-0.5">Klik tanggal yang tersedia untuk langsung mengunci jadwal pada kalkulator pesanan.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
+                    {[
+                      { label: 'Tersedia', color: 'bg-emerald-500', bg: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
+                      { label: 'Slot Terbatas', color: 'bg-amber-500', bg: 'bg-amber-50 border-amber-200 text-amber-900' },
+                      { label: 'Fully Booked', color: 'bg-rose-500', bg: 'bg-rose-50 border-rose-200 text-rose-900' }
+                    ].map(({ label, color, bg }) => (
+                      <span key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${bg}`}>
+                        <span className={`w-2.5 h-2.5 rounded-full ${color}`} />{label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                  {calendarDates.map((d, i) => {
+                    const isSelected = d.dateStr === eventDate;
+                    const isFull = d.status === 'Penuh';
+                    const isLimited = d.status === 'Slot Terbatas';
+                    return (
+                      <Reveal key={d.dateStr} delay={i * 25}>
+                        <button type="button"
+                          onClick={() => { setEventDate(d.dateStr); setFormError(isFull ? `Tanggal ${formatTanggalIndo(d.dateStr)} sudah Fully Booked. Silakan pilih tanggal lain.` : ''); }}
+                          className={`w-full p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between hover:-translate-y-1 hover:shadow-md ${isFull ? 'bg-rose-50/70 border-rose-200 text-rose-900 opacity-80 hover:opacity-100' : isSelected ? 'bg-emerald-950 border-amber-400 text-white shadow-lg scale-[1.02]' : isLimited ? 'bg-amber-50/60 border-amber-200 hover:border-amber-500 text-stone-800' : 'bg-[#FAF8F5] border-stone-200 hover:border-emerald-700 text-stone-800'}`}>
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-bold ${isSelected ? 'text-amber-300' : 'text-stone-500'}`}>{d.dayName}</span>
+                            {isSelected && !isFull && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                          </div>
+                          <div className="my-1.5">
+                            <span className="text-lg font-black">{d.dayNum}</span> <span className="text-xs font-semibold">{d.monthShort}</span>
+                          </div>
+                          <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-md w-fit ${isFull ? 'bg-rose-200/80 text-rose-900' : isSelected ? 'bg-amber-400 text-emerald-950' : isLimited ? 'bg-amber-200/80 text-amber-900' : 'bg-emerald-100 text-emerald-900'}`}>
+                            {isFull ? 'Fully Booked' : d.status}
+                          </span>
+                        </button>
+                      </Reveal>
+                    );
+                  })}
+                </div>
+              </div>
+            </Reveal>
+          </section>
+
+          <section id="booking-calculator-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+            <Reveal>
+              <div className="mb-8">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full">Simulasi Transparan & Pemesanan</span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 mt-2">Kalkulator Estimasi Biaya & Formulir Booking</h2>
+                <p className="text-stone-600 text-sm sm:text-base mt-1">Atur porsi paket utama, tambahkan gubukan/stall, dan kunci jadwal dapur Sarasa Catering.</p>
+              </div>
+            </Reveal>
+
+            <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              <div className="lg:col-span-7 space-y-6">
+                <Reveal>
+                  <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-950 text-amber-400 font-bold text-sm flex items-center justify-center">1</span>
+                      <div>
+                        <h3 className="font-bold text-lg text-emerald-950">Pilih Paket Utama & Jumlah Porsi (Pax)</h3>
+                        <p className="text-xs text-stone-500">Terhubung otomatis dengan pilihan Anda pada Showcase di atas.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Paket Catering Utama</label>
+                        <select value={selectedPkgId}
+                          onChange={(e) => { const idx = packages.findIndex((p) => p.id === e.target.value); if (idx !== -1) handleSelectShowcaseIndex(idx); }}
+                          className="w-full rounded-xl border border-stone-300 bg-[#FAF8F5] px-3.5 py-3 text-sm font-bold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-800 transition-shadow">
+                          {packages.map((p) => <option key={p.id} value={p.id}>{p.name} — {formatRupiah(p.price)}/pax (Min. {p.minOrder} pax)</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Jumlah Porsi (Pax)</label>
+                        <input type="number" min={activeCalculatorPkg?.minOrder || 1} value={pax}
+                          onChange={(e) => setPax(Number(e.target.value))}
+                          className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-3 text-sm font-extrabold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-800" />
+                        {activeCalculatorPkg && (
+                          <p className={`text-[11px] mt-1 font-semibold ${pax < activeCalculatorPkg.minOrder ? 'text-rose-600' : 'text-stone-500'}`}>
+                            Minimal order: {activeCalculatorPkg.minOrder} pax
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Reveal>
+
+                <Reveal delay={80}>
+                  <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-950 text-amber-400 font-bold text-sm flex items-center justify-center">2</span>
+                      <div>
+                        <h3 className="font-bold text-lg text-emerald-950">Tambahan Pondokan / Gubukan Live Stall (Opsional)</h3>
+                        <p className="text-xs text-stone-500">Pilih menu gubukan favorit untuk melengkapi jamuan utama Anda.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3 mt-4">
+                      {STALL_OPTIONS.map((stall) => {
+                        const isChecked = !!selectedStalls[stall.id]?.selected;
+                        const stallPax = selectedStalls[stall.id]?.pax || Math.max(40, pax);
+                        return (
+                          <div key={stall.id} className={`p-4 rounded-2xl border transition-all duration-300 ${isChecked ? 'bg-amber-50/70 border-amber-400 shadow-sm scale-[1.01]' : 'bg-[#FAF8F5] border-stone-200 hover:border-stone-300'}`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <label className="flex items-start gap-3 cursor-pointer flex-1">
+                                <input type="checkbox" checked={isChecked} onChange={() => handleToggleStall(stall.id)}
+                                  className="mt-1 w-4 h-4 rounded text-emerald-900 focus:ring-emerald-800 accent-emerald-900" />
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-bold text-sm text-emerald-950">{stall.name}</span>
+                                    <span className="text-xs font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">+{formatRupiah(stall.price)}/pax</span>
+                                  </div>
+                                  <p className="text-xs text-stone-600 mt-0.5">{stall.description}</p>
+                                </div>
+                              </label>
+                              {isChecked && (
+                                <div className="flex items-center gap-2 pl-7 sm:pl-0 animate-card-reveal">
+                                  <span className="text-xs font-bold text-stone-600">Porsi:</span>
+                                  <input type="number" min={10} value={stallPax}
+                                    onChange={(e) => handleStallPaxChange(stall.id, e.target.value)}
+                                    className="w-20 rounded-xl border border-amber-400 bg-white px-2.5 py-1.5 text-sm font-extrabold text-emerald-950 text-center focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                                  <span className="text-xs text-stone-500">pax</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Reveal>
+
+                <Reveal delay={160}>
+                  <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+                      <span className="w-8 h-8 rounded-full bg-emerald-950 text-amber-400 font-bold text-sm flex items-center justify-center">3</span>
+                      <div>
+                        <h3 className="font-bold text-lg text-emerald-950">Informasi Pemesan & Lokasi Acara</h3>
+                        <p className="text-xs text-stone-500">Data ini digunakan untuk pembuatan Invoice resmi dan jadwal pengiriman kurir.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Nama Lengkap Pemesan *</label>
+                        <input type="text" required placeholder="Contoh: Ibu Siti Rahmawati" value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800 transition-shadow" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Nomor WhatsApp Aktif *</label>
+                        <input type="tel" required placeholder="Contoh: 0812-3456-7890" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800 transition-shadow" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Tanggal Acara *</label>
+                        <input type="date" required min={getDateOffset(1)} value={eventDate}
+                          onChange={(e) => { setEventDate(e.target.value); setFormError(''); }}
+                          className={`w-full rounded-xl border px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 transition-shadow ${isDateFullyBooked ? 'border-rose-500 bg-rose-50 text-rose-900 focus:ring-rose-500' : 'border-stone-300 bg-white text-emerald-950 focus:ring-emerald-800'}`} />
+                        {isDateFullyBooked
+                          ? <p className="text-xs text-rose-600 font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 shrink-0" /><span>Tanggal ini Fully Booked! Pilih tanggal lain.</span></p>
+                          : <p className="text-[11px] text-emerald-700 font-semibold mt-1">✓ Jadwal dapur tersedia</p>}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Jam Hidangan Siap di Lokasi *</label>
+                        <input type="time" required value={eventTime} onChange={(e) => setEventTime(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-800" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Alamat Lengkap Lokasi Acara *</label>
+                        <textarea rows={2} required placeholder="Nama gedung/jalan, nomor rumah, RT/RW, kecamatan, dan patokan lokasi..." value={address} onChange={(e) => setAddress(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Catatan Khusus untuk Chef & Tim Dekorasi (Opsional)</label>
+                        <input type="text" placeholder="Contoh: Nuansa kain meja hijau-emas, sambal dipisah..." value={notes} onChange={(e) => setNotes(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800" />
+                      </div>
+                    </div>
+                  </div>
+                </Reveal>
+              </div>
+
+              <div className="lg:col-span-5 lg:sticky lg:top-24">
+                <Reveal delay={100}>
+                  <div className="bg-emerald-950 text-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-emerald-800 space-y-5 overflow-hidden relative">
+                    <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none animate-float" />
+                    <div className="relative">
+                      <div className="flex items-center justify-between border-b border-emerald-800/90 pb-4">
+                        <div>
+                          <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">Live Summary</span>
+                          <h3 className="text-xl font-extrabold text-white mt-0.5">Ringkasan Estimasi Biaya</h3>
+                        </div>
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-900 border border-amber-400/40 flex items-center justify-center text-amber-400 animate-glow">
+                          <ShoppingBag className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <div className="space-y-3 text-sm pt-5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <p className="font-bold text-white">{activeCalculatorPkg?.name}</p>
+                            <p className="text-xs text-emerald-300">{pax} pax × {formatRupiah(activeCalculatorPkg?.price || 0)}</p>
+                          </div>
+                          <span className="font-extrabold text-white">{formatRupiah(pricingSummary.mainSubtotal)}</span>
+                        </div>
+                        {pricingSummary.stallDetails.length > 0 && (
+                          <div className="pt-2.5 border-t border-emerald-800/80 space-y-2">
+                            <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Tambahan Pondokan (Stall):</p>
+                            {pricingSummary.stallDetails.map((st) => (
+                              <div key={st.id} className="flex justify-between text-xs text-emerald-100 animate-slide-stagger">
+                                <span>{st.name} ({st.pax} pax)</span>
+                                <span className="font-bold">{formatRupiah(st.subtotal)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="pt-3 border-t border-emerald-800/80 flex justify-between text-xs text-emerald-200">
+                          <span>Jadwal Acara:</span>
+                          <span className="font-bold text-amber-300">{formatTanggalIndo(eventDate, false)} • {eventTime} WIB</span>
+                        </div>
+                      </div>
+                      <div className="bg-emerald-900/90 rounded-2xl p-4 border border-emerald-700/80 space-y-2.5 mt-5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-emerald-200">Total Estimasi Biaya</span>
+                          <span className="text-xl font-black text-white tabular-nums">{formatRupiah(pricingSummary.grandTotal)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-emerald-800">
+                          <div>
+                            <span className="text-xs font-extrabold uppercase text-amber-400 block">Uang Muka / DP (50%)</span>
+                            <span className="text-[11px] text-emerald-300">Mengunci jadwal & bahan baku dapur</span>
+                          </div>
+                          <span className="text-lg font-black text-amber-400 tabular-nums">{formatRupiah(pricingSummary.dpAmount)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-emerald-300 pt-1">
+                          <span>Pelunasan (H-1 Acara)</span><span>{formatRupiah(pricingSummary.remainingAmount)}</span>
+                        </div>
+                      </div>
+                      {formError && (
+                        <div className="mt-4 p-3.5 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs flex items-start gap-2 animate-shake">
+                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" /><span>{formError}</span>
+                        </div>
+                      )}
+                      <MagneticButton type="submit" disabled={isDateFullyBooked}
+                        className={`w-full mt-5 py-3.5 px-5 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${isDateFullyBooked ? 'bg-stone-600 text-stone-300 cursor-not-allowed' : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-emerald-950 shadow-amber-500/25 shimmer-btn'}`}>
+                        <CheckCircle2 className="w-5 h-5" /><span>Kunci Jadwal & Buat Pesanan</span>
+                      </MagneticButton>
+                      <p className="text-[11px] text-center text-emerald-300/80 mt-3">Terintegrasi langsung dengan Lembar Produksi Dapur (Kitchen Sheet) Sarasa.</p>
+                    </div>
+                  </div>
+                </Reveal>
+              </div>
+            </form>
+          </section>
+
+          {videoModalPkg && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-backdrop-zoom" onClick={() => setVideoModalPkg(null)}>
+              <div className="bg-emerald-950 text-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl border border-amber-400/40 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                <div className="p-5 bg-emerald-900/80 border-b border-emerald-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-lg bg-amber-400 text-emerald-950 flex items-center justify-center animate-pulse-ring"><Play className="w-4 h-4 fill-current" /></span>
+                    <div>
+                      <h3 className="font-extrabold text-base text-white">Preview Penyajian: {videoModalPkg.name}</h3>
+                      <p className="text-xs text-emerald-300">Durasi Dokumentasi Standar Setup: {videoModalPkg.videoDuration || '02:00'}</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setVideoModalPkg(null)} className="p-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="relative rounded-2xl bg-gradient-to-br from-emerald-900 via-[#043927] to-emerald-950 border border-emerald-700/80 p-6 flex flex-col sm:flex-row items-center gap-6 overflow-hidden">
+                    <div className="animate-rotate-slow"><TopDownPlateSVG styleType={videoModalPkg.plateStyle} size="small" /></div>
+                    <div className="space-y-1.5 text-center sm:text-left">
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-400 text-emerald-950">Standar Penyajian Eksklusif</span>
+                      <h4 className="text-lg font-extrabold text-white">Kurasi oleh {videoModalPkg.chefName}</h4>
+                      <p className="text-xs text-emerald-200 leading-relaxed">{videoModalPkg.chefQuote}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Fasilitas & Perlengkapan Penyajian yang Didapatkan:</p>
+                    {(videoModalPkg.videoHighlights || []).map((hl, i) => (
+                      <div key={i} className="flex items-center gap-2.5 text-xs sm:text-sm bg-emerald-900/60 border border-emerald-800 px-3.5 py-2.5 rounded-xl animate-slide-stagger" style={{ animationDelay: `${i * 80}ms` }}>
+                        <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" /><span>{hl}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button type="button" onClick={() => setVideoModalPkg(null)} className="px-4 py-2.5 rounded-xl text-xs font-bold text-emerald-200 hover:text-white transition-colors">Tutup</button>
+                    <button type="button" onClick={() => { const t = videoModalPkg; setVideoModalPkg(null); scrollToCalculatorWithPkg(t); }}
+                      className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-xs flex items-center gap-2 transition-all hover:scale-105">
+                      <ShoppingBag className="w-4 h-4" /><span>Pesan Paket Ini Sekarang</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showOrderTracker && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-backdrop-zoom" onClick={() => setShowOrderTracker(false)}>
+              <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-200 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-emerald-950 text-white p-5 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-base">Lacak Status Pesanan Catering</h3>
+                    <p className="text-xs text-emerald-300">Masukkan nama pemesan atau kode booking</p>
+                  </div>
+                  <button type="button" onClick={() => setShowOrderTracker(false)} className="text-emerald-200 hover:text-white"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input type="text" placeholder="Ketik kode pesanan atau nama Anda..." value={trackerSearch} onChange={(e) => setTrackerSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800" />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-2.5">
+                    {orders.filter((o) => !trackerSearch.trim() || o.id.toLowerCase().includes(trackerSearch.toLowerCase()) || o.customerName.toLowerCase().includes(trackerSearch.toLowerCase())).map((ord, i) => (
+                      <div key={ord.id} className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-stone-200 flex items-center justify-between gap-3 animate-slide-stagger" style={{ animationDelay: `${i * 50}ms` }}>
+                        <div>
+                          <span className="text-xs font-mono font-bold text-emerald-900">{ord.id}</span>
+                          <p className="font-bold text-sm text-stone-900">{ord.customerName}</p>
+                          <p className="text-xs text-stone-500">{ord.packageName} ({ord.pax} pax) • {formatTanggalIndo(ord.eventDate, false)}</p>
+                        </div>
+                        <span className="px-3 py-1 rounded-lg bg-amber-100 text-amber-900 font-extrabold text-xs shrink-0">{ord.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {confirmedOrder && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-backdrop-zoom">
+              <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-200 animate-scale-in">
+                <div className="bg-emerald-950 p-6 text-white text-center relative overflow-hidden">
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-amber-500/20 blur-2xl animate-float" />
+                  </div>
+                  <button type="button" onClick={() => setConfirmedOrder(null)} className="absolute top-4 right-4 text-emerald-200 hover:text-white z-10"><X className="w-5 h-5" /></button>
+                  <div className="w-14 h-14 rounded-full bg-amber-400 text-emerald-950 flex items-center justify-center mx-auto mb-3 shadow-lg animate-glow relative z-10">
+                    <Check className="w-8 h-8 stroke-[3]" />
+                  </div>
+                  <h3 className="text-xl font-extrabold relative z-10">Pesanan Berhasil Terjadwal!</h3>
+                  <p className="text-xs text-emerald-200 mt-1 relative z-10">Data acara Anda telah masuk ke Sistem Produksi Dapur Sarasa Catering.</p>
+                  <div className="mt-3 inline-block px-3.5 py-1 rounded-full bg-emerald-900 border border-amber-400/50 text-amber-300 text-xs font-mono font-bold relative z-10">
+                    Kode Booking: {confirmedOrder.id}
+                  </div>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-stone-200 space-y-2 text-sm">
+                    {[
+                      ['Pemesan:', confirmedOrder.customerName],
+                      ['Jadwal Acara:', `${formatTanggalIndo(confirmedOrder.eventDate, false)} (${confirmedOrder.eventTime})`],
+                      ['Paket Utama:', `${confirmedOrder.packageName} (${confirmedOrder.pax} pax)`]
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between">
+                        <span className="text-stone-500">{k}</span><span className="font-semibold text-stone-800">{v}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between pt-2 border-t border-stone-200">
+                      <span className="font-bold text-emerald-950">Tagihan DP (50%):</span>
+                      <span className="font-extrabold text-amber-700"><AnimatedCounter value={confirmedOrder.dpAmount} /></span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button type="button" onClick={() => handleCopyWaText(confirmedOrder)}
+                      className="py-2.5 px-4 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all">
+                      {copiedWa ? <><Check className="w-4 h-4 text-emerald-600" /><span className="text-emerald-700">Teks Tersalin!</span></> : <><Copy className="w-4 h-4" /><span>Salin Format WA</span></>}
+                    </button>
+                    <a href={`https://wa.me/${SARASA_CONFIG.whatsappNumber}?text=${encodeURIComponent(generateWhatsAppText(confirmedOrder))}`} target="_blank" rel="noopener noreferrer"
+                      className="py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:scale-[1.02]">
+                      <MessageCircle className="w-4 h-4" /><span>Konfirmasi via WhatsApp</span>
+                    </a>
+                  </div>
+                  <div className="pt-2 border-t border-stone-100 flex flex-col sm:flex-row gap-2">
+                    <button type="button" onClick={() => { setConfirmedOrder(null); onSwitchToAdmin(); }}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                      <LayoutDashboard className="w-4 h-4" /><span>Lihat di Dashboard Admin</span>
+                    </button>
+                    <button type="button" onClick={() => setConfirmedOrder(null)} className="py-2.5 px-4 rounded-xl text-stone-500 hover:text-stone-800 font-semibold text-xs">Tutup</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    /* ============================================================
+       10. ADMIN DASHBOARD
+    ============================================================ */
+    function AdminDashboard({ orders, packages, onUpdateStatus, onAddPackage, onResetDemo, onSwitchToCustomer }) {
+      const [activeTab, setActiveTab] = useState('orders');
+      const [statusFilter, setStatusFilter] = useState('Semua');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [invoiceOrder, setInvoiceOrder] = useState(null);
+
+      const availableOrderDates = useMemo(() => Array.from(new Set(orders.map((o) => o.eventDate))).sort(), [orders]);
+      const [selectedKitchenDate, setSelectedKitchenDate] = useState(availableOrderDates[0] || getDateOffset(3));
+
+      useEffect(() => {
+        if (!selectedKitchenDate && availableOrderDates.length > 0) setSelectedKitchenDate(availableOrderDates[0]);
+      }, [availableOrderDates, selectedKitchenDate]);
+
+      const [newPkgName, setNewPkgName] = useState('');
+      const [newPkgCategory, setNewPkgCategory] = useState('Prasmanan');
+      const [newPkgPlateStyle, setNewPkgPlateStyle] = useState('buffet');
+      const [newPkgPrice, setNewPkgPrice] = useState(55000);
+      const [newPkgHpp, setNewPkgHpp] = useState(31000);
+      const [newPkgMinOrder, setNewPkgMinOrder] = useState(40);
+      const [newPkgChefName, setNewPkgChefName] = useState('Chef Feny Maharani');
+      const [newPkgItemsText, setNewPkgItemsText] = useState('');
+      const [pkgFormError, setPkgFormError] = useState('');
+
+      const kpiStats = useMemo(() => {
+        const active = orders.filter((o) => o.status !== 'Selesai');
+        return {
+          activeCount: active.length,
+          totalPaxScheduled: active.reduce((s, o) => s + o.pax, 0),
+          totalOmzet: orders.reduce((s, o) => s + o.totalAmount, 0),
+          collectedDp: orders.filter((o) => o.status !== 'Menunggu DP').reduce((s, o) => s + (o.status === 'Selesai' ? o.totalAmount : o.dpAmount), 0),
+          pendingAction: orders.filter((o) => o.status === 'Menunggu DP').length
+        };
+      }, [orders]);
+
+      const filteredOrders = useMemo(() => orders.filter((o) => {
+        const matchStatus = statusFilter === 'Semua' || o.status === statusFilter;
+        const q = searchQuery.toLowerCase();
+        const matchQuery = !q || o.id.toLowerCase().includes(q) || o.customerName.toLowerCase().includes(q) || o.packageName.toLowerCase().includes(q);
+        return matchStatus && matchQuery;
+      }), [orders, statusFilter, searchQuery]);
+
+      const kitchenSummary = useMemo(() => {
+        const ordersOnDate = orders.filter((o) => o.eventDate === selectedKitchenDate).sort((a, b) => a.eventTime.localeCompare(b.eventTime));
+        const dishMap = {}; const stallMap = {};
+        ordersOnDate.forEach((order) => {
+          const pkg = packages.find((p) => p.id === order.packageId);
+          const dishList = pkg ? pkg.items : [`Menu ${order.packageName}`];
+          dishList.forEach((dish) => {
+            if (!dishMap[dish]) dishMap[dish] = { name: dish, totalPax: 0, sources: [] };
+            dishMap[dish].totalPax += order.pax; dishMap[dish].sources.push(`${order.id} (${order.pax} pax)`);
+          });
+          (order.stalls || []).forEach((st) => {
+            if (!stallMap[st.name]) stallMap[st.name] = { name: st.name, totalPax: 0, sources: [] };
+            stallMap[st.name].totalPax += st.pax; stallMap[st.name].sources.push(`${order.id} (${st.pax} pax)`);
+          });
+        });
+        return {
+          ordersOnDate,
+          aggregatedDishes: Object.values(dishMap).sort((a, b) => b.totalPax - a.totalPax),
+          aggregatedStalls: Object.values(stallMap).sort((a, b) => b.totalPax - a.totalPax),
+          totalPax: ordersOnDate.reduce((s, o) => s + o.pax, 0)
+        };
+      }, [orders, packages, selectedKitchenDate]);
+
+      const handleAddPackageSubmit = (e) => {
+        e.preventDefault(); setPkgFormError('');
+        if (!newPkgName.trim()) return setPkgFormError('Nama paket wajib diisi.');
+        if (newPkgPrice <= 0 || newPkgHpp <= 0) return setPkgFormError('Harga & HPP harus lebih dari 0.');
+        if (newPkgHpp >= newPkgPrice) return setPkgFormError('HPP tidak boleh lebih besar atau sama dengan harga jual.');
+        const itemsArr = newPkgItemsText.split('\n').map((s) => s.trim()).filter(Boolean);
+        if (itemsArr.length === 0) return setPkgFormError('Minimal isi 1 item menu (satu per baris).');
+        onAddPackage({
+          id: `pkg-${Date.now()}`, name: newPkgName.trim(), category: newPkgCategory, plateStyle: newPkgPlateStyle,
+          accentTint: '#064E3B', price: Number(newPkgPrice), hpp: Number(newPkgHpp), minOrder: Number(newPkgMinOrder),
+          rating: '4.8', likes: 0, chefName: newPkgChefName, chefTitle: 'Culinary Specialist',
+          chefQuote: 'Paket baru yang dirancang khusus untuk melengkapi momen berharga Anda.',
+          videoDuration: '02:00', videoHighlights: ['Peralatan saji higienis premium', 'Pengiriman terjadwal', 'Garansi ketepatan waktu'],
+          items: itemsArr, rankLabel: '#Baru Rilis'
+        });
+        setNewPkgName(''); setNewPkgItemsText(''); setNewPkgPrice(55000); setNewPkgHpp(31000); setNewPkgMinOrder(40);
+        setActiveTab('packages');
+      };
+
+      const TABS = [
+        { id: 'orders', label: 'Pesanan & Status', icon: FileText },
+        { id: 'kitchen', label: 'Kitchen Sheet (Dapur)', icon: ChefHat },
+        { id: 'packages', label: 'Katalog Paket', icon: Package },
+        { id: 'add-package', label: 'Tambah Paket Baru', icon: Plus }
+      ];
+
+      const STATUS_OPTIONS = ['Menunggu DP', 'DP Lunas', 'Diproses Dapur', 'Dikirim', 'Selesai'];
+
+      return (
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+          <div className="no-print">
+          <Reveal>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full">Dashboard Operasional</span>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 mt-2">Pusat Kendali Sarasa Catering</h1>
+                <p className="text-stone-600 text-sm mt-1">Kelola pesanan, jadwal dapur, katalog paket, dan invoice dari satu layar.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={onSwitchToCustomer}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-stone-300 hover:border-emerald-700 text-stone-800 font-bold text-xs shadow-sm hover:shadow transition-all hover:-translate-y-0.5">
+                  <Store className="w-4 h-4 text-emerald-700" /><span>Mode Customer</span>
+                </button>
+                <button type="button" onClick={onResetDemo}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-800 font-bold text-xs shadow-sm hover:shadow transition-all hover:-translate-y-0.5">
+                  <RotateCcw className="w-4 h-4" /><span>Reset Demo</span>
+                </button>
+              </div>
+            </div>
+          </Reveal>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
+            {[
+              { label: 'Pesanan Aktif', value: kpiStats.activeCount, suffix: ' pesanan', icon: Package, color: 'from-emerald-700 to-emerald-900', accent: 'text-amber-300' },
+              { label: 'Total Pax Terjadwal', value: kpiStats.totalPaxScheduled, suffix: ' pax', icon: Users, color: 'from-amber-500 to-amber-700', accent: 'text-white' },
+              { label: 'DP Terkumpul', value: kpiStats.collectedDp, prefix: 'Rp ', icon: Wallet, color: 'from-teal-700 to-emerald-900', accent: 'text-amber-300' },
+              { label: 'Menunggu Tindakan', value: kpiStats.pendingAction, suffix: ' pesanan', icon: AlertCircle, color: 'from-rose-600 to-rose-800', accent: 'text-white' }
+            ].map((card, i) => {
+              const Icon = card.icon;
+              return (
+                <Reveal key={card.label} delay={i * 80}>
+                  <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.color} text-white p-4 sm:p-5 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1`}>
+                    <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10 blur-2xl" />
+                    <div className="flex items-start justify-between relative">
+                      <div>
+                        <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${card.accent} opacity-90`}>{card.label}</p>
+                        <p className="text-xl sm:text-2xl font-black mt-1 tabular-nums">
+                          <AnimatedCounter value={card.value} prefix={card.prefix || ''} />
+                          <span className="text-xs font-medium opacity-90">{card.suffix || ''}</span>
+                        </p>
+                      </div>
+                      <div className={`w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center ${card.accent}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+
+          <Reveal>
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
+              <div className="border-b border-stone-200 overflow-x-auto">
+                <div className="flex min-w-max">
+                  {TABS.map((t) => {
+                    const Icon = t.icon;
+                    const isActive = activeTab === t.id;
+                    return (
+                      <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
+                        className={`relative flex items-center gap-2 px-4 sm:px-5 py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${isActive ? 'text-emerald-950 bg-[#FAF8F5]' : 'text-stone-500 hover:text-stone-800 hover:bg-stone-50'}`}>
+                        <Icon className="w-4 h-4" /><span>{t.label}</span>
+                        {isActive && <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-amber-500 rounded-t-full animate-grow-x" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div key={activeTab} className="p-4 sm:p-6 animate-fade-in">
+                {activeTab === 'orders' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input type="text" placeholder="Cari kode pesanan, nama, atau paket..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800" />
+                      </div>
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                        {['Semua', ...STATUS_OPTIONS].map((s) => (
+                          <button key={s} type="button" onClick={() => setStatusFilter(s)}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${statusFilter === s ? 'bg-emerald-950 text-amber-300 shadow-sm' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-2xl border border-stone-200">
+                      <table className="w-full text-sm">
+                        <thead className="bg-[#FAF8F5] text-stone-500">
+                          <tr>
+                            {['Kode', 'Pelanggan', 'Jadwal', 'Paket', 'Total', 'Status', 'Aksi'].map((h) => (
+                              <th key={h} className="text-left font-bold text-[11px] uppercase tracking-wider px-3 sm:px-4 py-3 whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredOrders.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center py-10 text-stone-400 text-sm">Tidak ada pesanan yang sesuai filter.</td></tr>
+                          ) : filteredOrders.map((o, i) => (
+                            <tr key={o.id} className="border-t border-stone-100 hover:bg-amber-50/40 transition-colors animate-slide-stagger" style={{ animationDelay: `${i * 30}ms` }}>
+                              <td className="px-3 sm:px-4 py-3 font-mono text-xs font-bold text-emerald-900 whitespace-nowrap">{o.id}</td>
+                              <td className="px-3 sm:px-4 py-3">
+                                <p className="font-bold text-stone-900 text-xs sm:text-sm">{o.customerName}</p>
+                                <p className="text-[11px] text-stone-500">{o.whatsapp}</p>
+                              </td>
+                              <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap">
+                                <p className="font-semibold text-stone-800">{formatTanggalIndo(o.eventDate, false)}</p>
+                                <p className="text-stone-500">{o.eventTime} WIB</p>
+                              </td>
+                              <td className="px-3 sm:px-4 py-3 text-xs">
+                                <p className="font-semibold text-stone-800">{o.packageName}</p>
+                                <p className="text-stone-500">{o.pax} pax</p>
+                              </td>
+                              <td className="px-3 sm:px-4 py-3 text-xs font-extrabold text-stone-900 whitespace-nowrap tabular-nums">{formatRupiah(o.totalAmount)}</td>
+                              <td className="px-3 sm:px-4 py-3">
+                                <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value)}
+                                  className={`text-[11px] font-bold rounded-lg px-2 py-1.5 border focus:outline-none focus:ring-2 ${o.status === 'Selesai' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : o.status === 'Menunggu DP' ? 'bg-rose-100 text-rose-800 border-rose-200' : o.status === 'Dikirim' ? 'bg-sky-100 text-sky-800 border-sky-200' : 'bg-amber-100 text-amber-800 border-amber-200'} focus:ring-emerald-800`}>
+                                  {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </td>
+                              <td className="px-3 sm:px-4 py-3">
+                                <button type="button" onClick={() => setInvoiceOrder(o)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-950 text-amber-300 text-[11px] font-bold hover:bg-emerald-800 transition-colors">
+                                  <FileText className="w-3 h-3" /> Invoice
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'kitchen' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+                      <div>
+                        <h3 className="font-extrabold text-lg text-emerald-950">Kitchen Sheet — Lembar Produksi Dapur</h3>
+                        <p className="text-xs text-stone-500">Agregasi seluruh hidangan yang harus dimasak pada tanggal terpilih.</p>
+                      </div>
+                      <select value={selectedKitchenDate} onChange={(e) => setSelectedKitchenDate(e.target.value)}
+                        className="rounded-xl border border-stone-300 px-3 py-2 text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-800">
+                        {availableOrderDates.map((d) => <option key={d} value={d}>{formatTanggalIndo(d)}</option>)}
+                      </select>
+                    </div>
+
+                    {kitchenSummary.ordersOnDate.length === 0 ? (
+                      <div className="text-center py-12 text-stone-400 text-sm">Tidak ada pesanan pada tanggal ini.</div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <div className="rounded-2xl bg-emerald-950 text-white p-4">
+                            <p className="text-[10px] uppercase font-bold text-amber-300 tracking-wider">Total Pesanan</p>
+                            <p className="text-2xl font-black mt-1"><AnimatedCounter value={kitchenSummary.ordersOnDate.length} prefix="" /></p>
+                          </div>
+                          <div className="rounded-2xl bg-amber-500 text-emerald-950 p-4">
+                            <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Total Pax</p>
+                            <p className="text-2xl font-black mt-1"><AnimatedCounter value={kitchenSummary.totalPax} prefix="" /></p>
+                          </div>
+                          <div className="rounded-2xl bg-stone-100 border border-stone-200 p-4 col-span-2 sm:col-span-1">
+                            <p className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">Jenis Hidangan</p>
+                            <p className="text-2xl font-black mt-1 text-emerald-950"><AnimatedCounter value={kitchenSummary.aggregatedDishes.length} prefix="" /></p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div className="rounded-2xl border border-stone-200 p-4">
+                            <h4 className="font-bold text-sm text-emerald-950 mb-3 flex items-center gap-2"><Utensils className="w-4 h-4 text-amber-600" /> Daftar Hidangan Paket</h4>
+                            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                              {kitchenSummary.aggregatedDishes.map((d, i) => (
+                                <div key={d.name} className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-[#FAF8F5] border border-stone-200 animate-slide-stagger" style={{ animationDelay: `${i * 30}ms` }}>
+                                  <div>
+                                    <p className="font-bold text-xs text-stone-900">{d.name}</p>
+                                    <p className="text-[10px] text-stone-500">{d.sources.join(' • ')}</p>
+                                  </div>
+                                  <span className="shrink-0 px-2 py-1 rounded-lg bg-emerald-950 text-amber-300 text-[11px] font-extrabold">{d.totalPax} pax</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-stone-200 p-4">
+                            <h4 className="font-bold text-sm text-emerald-950 mb-3 flex items-center gap-2"><Flame className="w-4 h-4 text-amber-600" /> Gubukan / Live Stall</h4>
+                            {kitchenSummary.aggregatedStalls.length === 0 ? (
+                              <p className="text-xs text-stone-400 text-center py-8">Tidak ada pondokan/stall pada tanggal ini.</p>
+                            ) : (
+                              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                                {kitchenSummary.aggregatedStalls.map((s, i) => (
+                                  <div key={s.name} className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-amber-50/60 border border-amber-200 animate-slide-stagger" style={{ animationDelay: `${i * 30}ms` }}>
+                                    <div>
+                                      <p className="font-bold text-xs text-stone-900">{s.name}</p>
+                                      <p className="text-[10px] text-stone-500">{s.sources.join(' • ')}</p>
+                                    </div>
+                                    <span className="shrink-0 px-2 py-1 rounded-lg bg-amber-500 text-emerald-950 text-[11px] font-extrabold">{s.totalPax} pax</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'packages' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-extrabold text-lg text-emerald-950">Katalog Paket Aktif</h3>
+                        <p className="text-xs text-stone-500">Paket yang tampil di Showcase customer secara otomatis.</p>
+                      </div>
+                      <button type="button" onClick={() => setActiveTab('add-package')}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs transition-all hover:scale-105">
+                        <Plus className="w-4 h-4" /> Tambah Paket
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {packages.map((p, i) => (
+                        <Reveal key={p.id} delay={i * 60}>
+                          <div className="rounded-2xl border border-stone-200 bg-white p-4 hover:shadow-lg hover:-translate-y-1 transition-all">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="w-16 h-16 flex items-center justify-center">
+                                <TopDownPlateSVG styleType={p.plateStyle} size="small" />
+                              </div>
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-md bg-emerald-100 text-emerald-900">{p.category}</span>
+                            </div>
+                            <h4 className="font-extrabold text-sm text-emerald-950">{p.name}</h4>
+                            <p className="text-[11px] text-stone-500 mt-0.5">{p.chefName}</p>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
+                              <div>
+                                <p className="text-[10px] text-stone-500">Harga Jual</p>
+                                <p className="font-extrabold text-sm text-emerald-950">{formatRupiah(p.price)}<span className="text-[10px] font-normal text-stone-500">/pax</span></p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] text-stone-500">Margin</p>
+                                <p className="font-extrabold text-xs text-amber-700">{Math.round(((p.price - (p.hpp || 0)) / p.price) * 100)}%</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-3 text-[10px] text-stone-500">
+                              <Star className="w-3 h-3 text-amber-500 fill-current" /> {p.rating} • {p.likes || 0} suka • Min. {p.minOrder} pax
+                            </div>
+                          </div>
+                        </Reveal>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'add-package' && (
+                  <form onSubmit={handleAddPackageSubmit} className="max-w-3xl mx-auto space-y-4">
+                    <div>
+                      <h3 className="font-extrabold text-lg text-emerald-950">Tambah Paket Catering Baru</h3>
+                      <p className="text-xs text-stone-500">Paket akan langsung muncul di katalog dan showcase customer.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Nama Paket *</label>
+                        <input type="text" required value={newPkgName} onChange={(e) => setNewPkgName(e.target.value)}
+                          placeholder="Contoh: Prasmanan Sunda Heritage" className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-emerald-800 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Kategori</label>
+                        <select value={newPkgCategory} onChange={(e) => setNewPkgCategory(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm bg-white font-bold">
+                          {['Prasmanan', 'Nasi Box', 'Tumpeng', 'Snack Box', 'Live Cooking'].map((c) => <option key={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Gaya Piring (Showcase)</label>
+                        <select value={newPkgPlateStyle} onChange={(e) => setNewPkgPlateStyle(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm bg-white font-bold">
+                          <option value="buffet">Buffet (Prasmanan)</option>
+                          <option value="bento">Bento (Kotak)</option>
+                          <option value="tumpeng">Tumpeng</option>
+                          <option value="roast">Roast (Panggang)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Harga Jual (Rp) *</label>
+                        <input type="number" min={1000} required value={newPkgPrice} onChange={(e) => setNewPkgPrice(Number(e.target.value))}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-bold focus:ring-2 focus:ring-emerald-800 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">HPP (Rp) *</label>
+                        <input type="number" min={1000} required value={newPkgHpp} onChange={(e) => setNewPkgHpp(Number(e.target.value))}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-bold focus:ring-2 focus:ring-emerald-800 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Minimal Order (pax)</label>
+                        <input type="number" min={1} value={newPkgMinOrder} onChange={(e) => setNewPkgMinOrder(Number(e.target.value))}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-bold focus:ring-2 focus:ring-emerald-800 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Nama Chef</label>
+                        <input type="text" value={newPkgChefName} onChange={(e) => setNewPkgChefName(e.target.value)}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-bold focus:ring-2 focus:ring-emerald-800 focus:outline-none" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold uppercase text-stone-600 mb-1.5">Daftar Menu (satu per baris) *</label>
+                        <textarea rows={5} required value={newPkgItemsText} onChange={(e) => setNewPkgItemsText(e.target.value)}
+                          placeholder={"Nasi Putih Pandan Wangi\nRendang Daging Sapi\nAyam Bakar Madu\n..."}
+                          className="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-emerald-800 focus:outline-none" />
+                      </div>
+                    </div>
+                    {pkgFormError && (
+                      <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2 animate-shake">
+                        <AlertCircle className="w-4 h-4 shrink-0" />{pkgFormError}
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button type="button" onClick={() => setActiveTab('packages')}
+                        className="px-4 py-2.5 rounded-xl text-stone-600 hover:text-stone-900 font-bold text-xs">Batal</button>
+                      <MagneticButton type="submit"
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-900 to-emerald-950 text-amber-300 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/20 shimmer-btn">
+                        <Plus className="w-4 h-4" /> Tambah ke Katalog
+                      </MagneticButton>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </Reveal>
+          </div>
+
+          {invoiceOrder && (
+            <div className="printable-invoice-backdrop fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-backdrop-zoom" onClick={() => setInvoiceOrder(null)}>
+              <div className="printable-invoice-card bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-200 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-emerald-950 text-white p-5 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-base">Invoice — {invoiceOrder.id}</h3>
+                    <p className="text-xs text-emerald-300">{formatTanggalIndo(invoiceOrder.createdAt, false)}</p>
+                  </div>
+                  <button type="button" onClick={() => setInvoiceOrder(null)} className="no-print text-emerald-200 hover:text-white"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="text-center pb-3 border-b border-dashed border-stone-300">
+                    <div className="inline-flex items-center gap-2 mb-1">
+                      <Utensils className="w-4 h-4 text-amber-600" />
+                      <span className="font-extrabold text-emerald-950 text-sm tracking-wider">{SARASA_CONFIG.brandName}</span>
+                    </div>
+                    <p className="text-[10px] text-stone-500">{SARASA_CONFIG.address} • {SARASA_CONFIG.phoneDisplay}</p>
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between"><span className="text-stone-500">Kepada:</span><span className="font-bold text-stone-900">{invoiceOrder.customerName}</span></div>
+                    <div className="flex justify-between"><span className="text-stone-500">Acara:</span><span className="font-semibold text-stone-800">{formatTanggalIndo(invoiceOrder.eventDate, false)} • {invoiceOrder.eventTime}</span></div>
+                    <div className="flex justify-between"><span className="text-stone-500">Alamat:</span><span className="font-semibold text-stone-800 text-right max-w-[60%]">{invoiceOrder.address}</span></div>
+                  </div>
+                  <div className="border-t border-b border-dashed border-stone-300 py-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between"><span className="font-semibold">{invoiceOrder.packageName} × {invoiceOrder.pax}</span><span className="font-bold">{formatRupiah(invoiceOrder.packagePrice * invoiceOrder.pax)}</span></div>
+                    {(invoiceOrder.stalls || []).map((s) => (
+                      <div key={s.id} className="flex justify-between text-stone-600"><span className="pl-3">• {s.name} × {s.pax}</span><span>{formatRupiah(s.price * s.pax)}</span></div>
+                    ))}
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between font-extrabold text-emerald-950"><span>TOTAL</span><span className="text-sm tabular-nums">{formatRupiah(invoiceOrder.totalAmount)}</span></div>
+                    <div className="flex justify-between text-amber-700 font-bold"><span>DP (50%)</span><span className="tabular-nums">{formatRupiah(invoiceOrder.dpAmount)}</span></div>
+                    <div className="flex justify-between text-stone-600"><span>Sisa Pelunasan</span><span className="tabular-nums">{formatRupiah(invoiceOrder.totalAmount - invoiceOrder.dpAmount)}</span></div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+                    <p className="font-bold mb-0.5">Catatan Khusus:</p>
+                    <p>{invoiceOrder.notes}</p>
+                  </div>
+                  <div className="no-print flex gap-2 pt-2">
+                    <button type="button" onClick={() => window.print()}
+                      className="flex-1 py-2.5 rounded-xl bg-emerald-950 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-800 transition-colors">
+                      <Printer className="w-4 h-4" /> Cetak Invoice
+                    </button>
+                    <button type="button" onClick={() => setInvoiceOrder(null)}
+                      className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-600 font-bold text-xs hover:bg-stone-50">Tutup</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    /* ============================================================
+       11. MOUNT APPLICATION
+    ============================================================ */
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+    window.__sarasaMounted = true;
+
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+      loadingEl.style.opacity = '0';
+      setTimeout(() => loadingEl.remove(), 350);
+    }
+  </script>
+  <script>
+    setTimeout(function () {
+      var el = document.getElementById('loading');
+      if (el && !window.__sarasaMounted) {
+        el.innerHTML =
+          '<p style="color:#064E3B;font-weight:700;font-size:15px;text-align:center;max-width:340px;line-height:1.5">' +
+          'Gagal memuat komponen aplikasi dari CDN. Periksa koneksi internet Anda lalu muat ulang halaman.' +
+          '</p>' +
+          '<button type="button" onclick="location.reload()" ' +
+          'style="margin-top:8px;padding:10px 20px;border-radius:12px;border:none;background:#064E3B;color:#FCD34D;font-weight:700;cursor:pointer">' +
+          'Muat Ulang</button>';
+      }
+    }, 12000);
+  </script>
+</body>
+</html>

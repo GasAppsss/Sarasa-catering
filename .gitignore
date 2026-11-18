@@ -1,0 +1,14 @@
+# Node & Local cache
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# Scratch & Editor
+.vscode/
+.idea/
+*.tmp
+
+# Secrets & Environment
+.env
+.env.*
