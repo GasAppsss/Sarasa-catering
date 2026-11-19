@@ -103,4 +103,19 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
     expect(await screen.findByRole('heading', { name: 'Pengaturan Sistem & Kustomisasi Pengembang' })).toBeInTheDocument();
     expect(screen.getByText('Theme & Design Token Customizer')).toBeInTheDocument();
   });
+
+  it('validates short WhatsApp numbers cleanly inside BookingCalculator', () => {
+    render(<App />);
+    fireEvent.change(screen.getByPlaceholderText(/Contoh: Ibu Siti Rahmawati/i), {
+      target: { value: 'Budi Santoso' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Contoh: 0812-3456-7890/i), {
+      target: { value: '08123' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Nama gedung\/jalan/i), {
+      target: { value: 'Jl. Sudirman No. 10, Jakarta Pusat' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Kunci Jadwal & Buat Pesanan/i }));
+    expect(screen.getByText(/Masukkan nomor WhatsApp aktif minimal 9 digit angka/i)).toBeInTheDocument();
+  });
 });

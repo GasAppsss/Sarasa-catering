@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS packages (
   rank_label TEXT NOT NULL,
   category TEXT NOT NULL,
   plate_style TEXT NOT NULL,
+  image_url TEXT NOT NULL DEFAULT '',
   accent_tint TEXT NOT NULL,
   price INTEGER NOT NULL,
   hpp INTEGER NOT NULL,
@@ -102,3 +103,13 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT '';
+
+-- Enforce Supabase/PostgreSQL Row Level Security so public anon PostgREST access is denied by default.
+ALTER TABLE staff_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stalls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;

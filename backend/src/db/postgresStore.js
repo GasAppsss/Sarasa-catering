@@ -25,14 +25,15 @@ function getOrCreatePool(databaseUrl) {
   const isLocal = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1');
   sharedPool = new Pool({
     connectionString: databaseUrl,
-    max: 5,
+    max: 3,
     idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
     ssl: isLocal ? false : { rejectUnauthorized: false },
   });
   return sharedPool;
 }
 
-export function createPostgresStore(databaseUrl) {
+export function createPostgresStore(databaseUrl, { seedDemoOrders = true } = {}) {
   const pool = getOrCreatePool(databaseUrl);
   let readyPromise = null;
 
@@ -87,10 +88,12 @@ export function createPostgresStore(databaseUrl) {
       }
     }
 
-    const { rows: orderRows } = await pool.query('SELECT COUNT(*)::int AS c FROM orders');
-    if (orderRows[0].c === 0) {
-      for (const order of buildInitialOrders()) {
-        await createOrderAsync(order);
+    if (seedDemoOrders) {
+      const { rows: orderRows } = await pool.query('SELECT COUNT(*)::int AS c FROM orders');
+      if (orderRows[0].c === 0) {
+        for (const order of buildInitialOrders()) {
+          await createOrderAsync(order);
+        }
       }
     }
 
@@ -115,14 +118,14 @@ export function createPostgresStore(databaseUrl) {
 
     const { rows } = await pool.query(
       `INSERT INTO packages (
-        id, name, title_line_1, title_line_2, rank_label, category, plate_style, accent_tint,
+        id, name, title_line_1, title_line_2, rank_label, category, plate_style, image_url, accent_tint,
         price, hpp, min_order, rating, likes, chef_name, chef_title, chef_quote, serving_note,
         allergens_json, equipment_json, video_duration, video_highlights_json, items_json, is_active
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name, title_line_1 = EXCLUDED.title_line_1, title_line_2 = EXCLUDED.title_line_2,
         rank_label = EXCLUDED.rank_label, category = EXCLUDED.category, plate_style = EXCLUDED.plate_style,
-        accent_tint = EXCLUDED.accent_tint, price = EXCLUDED.price, hpp = EXCLUDED.hpp,
+        image_url = EXCLUDED.image_url, accent_tint = EXCLUDED.accent_tint, price = EXCLUDED.price, hpp = EXCLUDED.hpp,
         min_order = EXCLUDED.min_order, rating = EXCLUDED.rating, chef_name = EXCLUDED.chef_name,
         chef_title = EXCLUDED.chef_title, chef_quote = EXCLUDED.chef_quote, serving_note = EXCLUDED.serving_note,
         allergens_json = EXCLUDED.allergens_json, equipment_json = EXCLUDED.equipment_json,
@@ -137,6 +140,7 @@ export function createPostgresStore(databaseUrl) {
         pkg.rankLabel || '#Baru Rilis',
         pkg.category,
         pkg.plateStyle || 'buffet',
+        pkg.imageUrl || '',
         pkg.accentTint || '#064E3B',
         pkg.price,
         pkg.hpp,
@@ -193,6 +197,11 @@ export function createPostgresStore(databaseUrl) {
 
   return {
     driver: 'postgres',
+    async ping() {
+      const t0 = Date.now();
+      await pool.query('SELECT 1');
+      return { ok: true, latencyMs: Date.now() - t0 };
+    },
     async ensureReady() {
       if (!readyPromise) {
         readyPromise = (async () => {

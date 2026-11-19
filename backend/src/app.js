@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
@@ -46,23 +47,46 @@ function formatZodError(error) {
   return error.issues.map((issue) => `${issue.path.join('.') || 'input'}: ${issue.message}`).join('; ');
 }
 
+const ORDER_ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function buildUniqueOrderId(prefix, existingOrders) {
+  const year = new Date().getFullYear();
+  const seqPrefix = `${prefix}-${year}-`;
+  let maxSeq = 0;
+  for (const ord of existingOrders) {
+    const idStr = String(ord?.id || '');
+    if (idStr.startsWith(seqPrefix)) {
+      const seqPart = idStr.slice(seqPrefix.length).split('-')[0];
+      const num = Number.parseInt(seqPart, 10);
+      if (Number.isFinite(num) && num > maxSeq) maxSeq = num;
+    }
+  }
+  const nextSeq = Math.max(existingOrders.length + 1, maxSeq + 1);
+  const randBytes = crypto.randomBytes(3);
+  const rand3 = Array.from(randBytes, (b) => ORDER_ID_ALPHABET[b % ORDER_ID_ALPHABET.length]).join('');
+  return `${prefix}-${year}-${String(nextSeq).padStart(3, '0')}-${rand3}`;
+}
+
 export function createApp({ config, store }) {
   const app = express();
   const { requireAuth, requireScope } = createAuthMiddleware(config.jwtSecret);
 
+  const corsOptions = {
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (config.corsOrigins.includes('*') || config.corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Origin not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+  };
+
   app.use(helmet());
-  app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin) return callback(null, true);
-        if (config.corsOrigins.includes('*') || config.corsOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error('Origin not allowed by CORS'));
-      },
-      credentials: false,
-    })
-  );
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
   app.use(express.json({ limit: '512kb' }));
 
   // Ensure DB schema and seed exist (serverless cold-start safe).
@@ -75,13 +99,28 @@ export function createApp({ config, store }) {
     }
   });
 
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      ok: true,
-      service: 'sajian-catering-api',
-      driver: store.driver,
-      timestamp: new Date().toISOString(),
-    });
+  app.get('/api/health', async (_req, res) => {
+    try {
+      const pingRes = await store.ping();
+      return res.json({
+        ok: true,
+        service: 'sajian-catering-api',
+        driver: store.driver,
+        db: 'ok',
+        latencyMs: pingRes.latencyMs,
+        emailOtpConfigured: Boolean(config.resendApiKey),
+        environment: config.nodeEnv,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      return res.status(503).json({
+        ok: false,
+        service: 'sajian-catering-api',
+        driver: store.driver,
+        db: 'error',
+        timestamp: new Date().toISOString(),
+      });
+    }
   });
 
   /* ============================================================
@@ -490,6 +529,14 @@ export function createApp({ config, store }) {
         });
       }
 
+      const minLeadDays = Math.max(0, Number(appConfig.business?.minLeadDays ?? 1));
+      const earliestDate = getDateOffsetIso(minLeadDays);
+      if (data.eventDate < earliestDate) {
+        return res.status(400).json({
+          error: `Tanggal acara minimal H-${minLeadDays} dari hari ini (paling cepat ${earliestDate}).`,
+        });
+      }
+
       const blocked = new Set(appConfig.business?.blockedDates || []);
       const dailyMaxPax = Number(appConfig.business?.dailyMaxPax) || 600;
       const bookedOnDate = existingOrders
@@ -530,11 +577,10 @@ export function createApp({ config, store }) {
       const dpPercent = Number(appConfig.business?.dpPercent) || 50;
       const dpAmount = Math.round((totalAmount * dpPercent) / 100);
       const prefix = appConfig.brand?.orderPrefix || 'SJC';
-      const nextNum = String(existingOrders.length + 1).padStart(3, '0');
-      const year = new Date().getFullYear();
+      const uniqueOrderId = buildUniqueOrderId(prefix, existingOrders);
 
       const created = await store.createOrder({
-        id: `${prefix}-${year}-${nextNum}`,
+        id: uniqueOrderId,
         customerName: data.customerName,
         whatsapp: data.whatsapp,
         eventDate: data.eventDate,

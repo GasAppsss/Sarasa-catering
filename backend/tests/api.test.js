@@ -28,10 +28,13 @@ describe('Sajian Catering Backend API & RBAC', () => {
     await store.close();
   });
 
-  it('serves /api/health and strips HPP/PII from /api/public/bootstrap', async () => {
+  it('serves /api/health with DB ping and strips HPP/PII from /api/public/bootstrap', async () => {
     const healthRes = await request(app).get('/api/health');
     expect(healthRes.status).toBe(200);
     expect(healthRes.body.ok).toBe(true);
+    expect(healthRes.body.db).toBe('ok');
+    expect(typeof healthRes.body.latencyMs).toBe('number');
+    expect(typeof healthRes.body.emailOtpConfigured).toBe('boolean');
 
     const res = await request(app).get('/api/public/bootstrap');
     expect(res.status).toBe(200);
@@ -43,7 +46,22 @@ describe('Sajian Catering Backend API & RBAC', () => {
     expect(res.body.calendarSlots).toHaveLength(14);
   });
 
-  it('computes authoritative prices server-side on POST /api/orders and protects /api/orders/track', async () => {
+  it('computes authoritative prices server-side, enforces minLeadDays, generates collision-safe order IDs, and protects /api/orders/track', async () => {
+    const pastOrder = await request(app)
+      .post('/api/orders')
+      .send({
+        packageId: 'pkg-2',
+        pax: 30,
+        stalls: [],
+        customerName: 'Ibu Sari',
+        whatsapp: '0812-7777-8899',
+        eventDate: '2020-01-01',
+        eventTime: '12:00',
+        address: 'Jl. Kemang Raya No. 15, Jakarta Selatan',
+      });
+    expect(pastOrder.status).toBe(400);
+    expect(pastOrder.body.error).toMatch(/Tanggal acara minimal/i);
+
     const targetDate = getDateOffsetIso(12);
     const createRes = await request(app)
       .post('/api/orders')
@@ -62,6 +80,7 @@ describe('Sajian Catering Backend API & RBAC', () => {
 
     expect(createRes.status).toBe(201);
     const created = createRes.body.order;
+    expect(created.id).toMatch(/^SJC-\d{4}-\d{3}-[A-Z2-9]{3}$/);
     // 30 * 42000 + 30 * 20000 = 1,860,000; 50% DP = 930,000
     expect(created.totalAmount).toBe(1860000);
     expect(created.dpAmount).toBe(930000);
@@ -172,6 +191,7 @@ describe('Sajian Catering Backend API & RBAC', () => {
         name: 'Paket VIP Keraton',
         category: 'Prasmanan',
         plateStyle: 'buffet',
+        imageUrl: 'https://example.com/royal-buffet.jpg',
         accentTint: '#064E3B',
         price: 85000,
         hpp: 45000,
@@ -181,6 +201,11 @@ describe('Sajian Catering Backend API & RBAC', () => {
       });
     expect(pkgRes.status).toBe(201);
     expect(pkgRes.body.package.name).toBe('Paket VIP Keraton');
+    expect(pkgRes.body.package.imageUrl).toBe('https://example.com/royal-buffet.jpg');
+
+    const bootAfterPkg = await request(app).get('/api/public/bootstrap');
+    const createdInBoot = bootAfterPkg.body.packages.find((p) => p.id === pkgRes.body.package.id);
+    expect(createdInBoot?.imageUrl).toBe('https://example.com/royal-buffet.jpg');
 
     const devConfigRes = await request(app)
       .put('/api/developer/config')
@@ -321,5 +346,30 @@ describe('Sajian Catering Backend API & RBAC', () => {
       .post('/api/auth/login')
       .send({ identifier: 'dapur', password: 'Dapur#5566' });
     expect(blockedGood.status).toBe(429);
+  });
+
+  it('starts production databases with zero demo orders while seeding packages and staff accounts', async () => {
+    const prodConfig = loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'test-production-secret-key-at-least-32-chars-long',
+      DB_DRIVER: 'sqlite',
+      SQLITE_PATH: ':memory:',
+      CORS_ORIGINS: 'https://gasappsss.github.io',
+    });
+    expect(prodConfig.seedDemoOrders).toBe(false);
+    const prodStore = createStore(prodConfig);
+    await prodStore.ensureReady();
+    try {
+      const [orders, packages, accounts] = await Promise.all([
+        prodStore.listOrders(),
+        prodStore.listPackages(),
+        prodStore.listStaffAccounts(),
+      ]);
+      expect(orders).toHaveLength(0);
+      expect(packages.length).toBeGreaterThanOrEqual(6);
+      expect(accounts.length).toBe(3);
+    } finally {
+      await prodStore.close();
+    }
   });
 });

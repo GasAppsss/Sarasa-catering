@@ -17,6 +17,7 @@ export function mapPackageRow(row) {
     rankLabel: row.rank_label,
     category: row.category,
     plateStyle: row.plate_style,
+    imageUrl: row.image_url || '',
     accentTint: row.accent_tint,
     price: Number(row.price),
     hpp: Number(row.hpp),
