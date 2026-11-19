@@ -156,6 +156,7 @@ export const PackageUpsertSchema = z.object({
   rankLabel: z.string().trim().max(60).optional().default('#Baru Rilis'),
   category: z.enum(['Prasmanan', 'Nasi Box', 'Tumpeng', 'Snack Box', 'Live Stall']),
   plateStyle: z.enum(['buffet', 'bento', 'tumpeng', 'roast', 'snack']).default('buffet'),
+  imageUrl: z.string().trim().url().or(z.literal('')).optional(),
   accentTint: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#064E3B'),
   price: z.coerce.number().int().min(1000).max(5000000),
   hpp: z.coerce.number().int().min(500).max(5000000),

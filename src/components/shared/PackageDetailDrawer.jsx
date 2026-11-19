@@ -64,9 +64,17 @@ export function PackageDetailDrawer({ pkg, onClose, onSelectPackage }) {
 
           <div className="p-6 space-y-6">
             <div className="flex items-center gap-4 rounded-2xl bg-white border border-stone-200 p-4 shadow-sm">
-              <div className="animate-rotate-slow">
-                <TopDownPlateSVG styleType={pkg.plateStyle} size="medium" />
-              </div>
+              {pkg.imageUrl ? (
+                <img
+                  src={pkg.imageUrl}
+                  alt={pkg.name}
+                  className="w-24 h-24 rounded-2xl object-cover border border-amber-200 shadow-sm shrink-0"
+                />
+              ) : (
+                <div className="animate-rotate-slow">
+                  <TopDownPlateSVG styleType={pkg.plateStyle} size="medium" />
+                </div>
+              )}
               <div className="space-y-1 flex-1">
                 <p className="text-xl font-black text-brand-dark tabular-nums">
                   {formatRupiah(pkg.price)}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Code2, Lock, Mail, MapPin, Phone, ShieldCheck, Utensils } from 'lucide-react';
+import { Clock, Lock, Mail, MapPin, Phone, ShieldCheck, Utensils } from 'lucide-react';
 import { ROLES } from '../../config/rbac.js';
 import { useApp } from '../../context/AppContext.jsx';
 
@@ -67,34 +67,24 @@ export function Footer({ onOpenTeamAuth }) {
           </div>
 
           <div className="space-y-3 text-xs">
-            <h3 className="font-bold text-white uppercase tracking-wider text-[11px]">Portal Internal Tim</h3>
+            <h3 className="font-bold text-white uppercase tracking-wider text-[11px]">Portal Internal</h3>
             <p className="text-emerald-200/80 leading-relaxed">
-              Akses khusus untuk Administrator Bisnis, Tim Dapur, dan Pengembang sistem.
+              Akses khusus untuk Administrator Bisnis dan Tim Operasional Dapur {brand?.name || 'Sajian Catering'}.
             </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => onOpenTeamAuth?.(ROLES.ADMIN)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-amber-300 font-bold text-xs transition-all cursor-pointer"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Login Admin &amp; Tim</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenTeamAuth?.(ROLES.DEVELOPER)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-black/20 hover:bg-white/15 border border-white/15 text-emerald-100 font-semibold text-xs transition-all cursor-pointer"
-              >
-                <Code2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Developer</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onOpenTeamAuth?.(ROLES.ADMIN)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-amber-300 font-bold text-xs transition-all cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Portal Internal Tim</span>
+            </button>
           </div>
         </div>
 
         <div className="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-emerald-300/75">
           <p>&copy; {new Date().getFullYear()} {brand?.name || 'Sajian Catering'}. Seluruh hak cipta dilindungi.</p>
-          <p>Shortcut Pengembang: <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-amber-200">Ctrl+Shift+D</kbd></p>
+          <p className="text-emerald-200/70">Dapur Higienis • Layanan Profesional Jabodetabek</p>
         </div>
       </div>
     </footer>

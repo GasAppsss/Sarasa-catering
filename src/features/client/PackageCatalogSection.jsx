@@ -108,9 +108,18 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500">
-                            <TopDownPlateSVG styleType={pkg.plateStyle} size="small" />
-                          </div>
+                          {pkg.imageUrl ? (
+                            <img
+                              src={pkg.imageUrl}
+                              alt={pkg.name}
+                              loading="lazy"
+                              className="w-16 h-16 rounded-2xl object-cover border border-amber-200/80 shadow-sm shrink-0 group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500">
+                              <TopDownPlateSVG styleType={pkg.plateStyle} size="small" />
+                            </div>
+                          )}
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${accent.badge}`}>

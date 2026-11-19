@@ -4,10 +4,12 @@ import { useApp } from '../../context/AppContext.jsx';
 import { formatTanggalIndo } from '../../utils/format.js';
 import { Modal } from '../ui/Modal.jsx';
 
+const IS_DEV_PREVIEW = Boolean(import.meta.env.BASE_URL?.includes('/preview'));
+
 export function OrderTrackerModal({ isOpen, onClose, onOpenClientPortal }) {
   const { trackClientOrder } = useApp();
-  const [orderId, setOrderId] = useState('SJC-2026-001');
-  const [whatsapp, setWhatsapp] = useState('0812-8890-1122');
+  const [orderId, setOrderId] = useState(IS_DEV_PREVIEW ? 'SJC-2026-001' : '');
+  const [whatsapp, setWhatsapp] = useState(IS_DEV_PREVIEW ? '0812-8890-1122' : '');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

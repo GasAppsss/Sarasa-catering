@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Footer } from './components/layout/Footer.jsx';
 import { Navbar } from './components/layout/Navbar.jsx';
+import { FloatingWhatsAppButton } from './components/shared/FloatingWhatsAppButton.jsx';
 import { OrderTrackerModal } from './components/shared/OrderTrackerModal.jsx';
 import { PackageDetailDrawer } from './components/shared/PackageDetailDrawer.jsx';
 import { ROLES, SCOPES } from './config/rbac.js';
@@ -223,6 +224,8 @@ function AppShell() {
         onClose={() => setTrackerOpen(false)}
         onOpenClientPortal={openPortalWithOrder}
       />
+
+      {(activeView === 'showcase' || activeView === 'client-portal') && <FloatingWhatsAppButton />}
     </div>
   );
 }

@@ -118,6 +118,54 @@ function toSafeAccountMeta(acc) {
   };
 }
 
+function replaceLegacyBrandText(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/SARASA CATERING/g, 'SAJIAN CATERING')
+    .replace(/Sarasa Catering/gi, 'Sajian Catering')
+    .replace(/\bSARASA\b/g, 'SAJIAN')
+    .replace(/\bSarasa\b/gi, 'Sajian')
+    .replace(/sarasacatering/gi, 'sajiancatering');
+}
+
+export function hydrateSanitizedConfig() {
+  const defaults = buildDefaultAppConfig();
+  const saved = readStorageJson(STORAGE_KEYS.CONFIG, null);
+  if (!saved || typeof saved !== 'object') return defaults;
+
+  const brand = {
+    ...defaults.brand,
+    ...(saved.brand || {}),
+  };
+  brand.name = replaceLegacyBrandText(brand.name);
+  brand.shortName = replaceLegacyBrandText(brand.shortName);
+  brand.subName = replaceLegacyBrandText(brand.subName);
+  brand.tagline = replaceLegacyBrandText(brand.tagline);
+
+  const business = {
+    ...defaults.business,
+    ...(saved.business || {}),
+  };
+  business.email = replaceLegacyBrandText(business.email);
+  business.instagram = replaceLegacyBrandText(business.instagram);
+  if (business.whatsappNumber === '6281234567890') {
+    business.whatsappNumber = defaults.business.whatsappNumber;
+    business.phoneDisplay = defaults.business.phoneDisplay;
+  }
+  if (business.bankAccountNumber === '521-089-4412') {
+    business.bankName = defaults.business.bankName;
+    business.bankAccountNumber = defaults.business.bankAccountNumber;
+    business.bankAccountHolder = defaults.business.bankAccountHolder;
+  }
+
+  return {
+    ...defaults,
+    ...saved,
+    brand,
+    business,
+  };
+}
+
 export function AppProvider({ children }) {
   const defaultApiUrl = normalizeBaseUrl(
     readStorageText(STORAGE_KEYS.API_URL, import.meta.env.VITE_API_URL || '')
@@ -138,7 +186,7 @@ export function AppProvider({ children }) {
     return 'showcase';
   });
 
-  const [config, setConfig] = useState(() => readStorageJson(STORAGE_KEYS.CONFIG, buildDefaultAppConfig()));
+  const [config, setConfig] = useState(() => hydrateSanitizedConfig());
   const [packages, setPackages] = useState(() => readStorageJson(STORAGE_KEYS.PACKAGES, INITIAL_PACKAGES));
   const [stalls, setStalls] = useState(() => readStorageJson(STORAGE_KEYS.STALLS, INITIAL_STALLS));
   const [orders, setOrders] = useState(() => readStorageJson(STORAGE_KEYS.ORDERS, buildInitialOrders()));

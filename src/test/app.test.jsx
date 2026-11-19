@@ -8,13 +8,23 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
     localStorage.clear();
   });
 
-  it('renders rich animated Royal Emerald showcase without exposing internal POVs', () => {
+  it('renders rich animated Royal Emerald showcase with Sajian Catering WA CTA and migrates legacy Sarasa storage', () => {
+    localStorage.setItem(
+      'sajian_v3_config',
+      JSON.stringify({
+        brand: { name: 'SARASA CATERING', shortName: 'SARASA', subName: 'CATERING', tagline: 'Sarasa Catering Demo' },
+        business: { whatsappNumber: '6281234567890', bankAccountNumber: '521-089-4412' },
+      })
+    );
     render(<App />);
     expect(screen.getAllByText(/SAJIAN/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/SARASA/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/ROYAL BUFFET/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Katalog Paket Catering Pilihan')).toBeInTheDocument();
     expect(screen.queryByText('Pengaturan Sistem & Kustomisasi Pengembang')).not.toBeInTheDocument();
     expect(screen.queryByText('Kitchen Command Center')).not.toBeInTheDocument();
+    const waLink = screen.getByRole('link', { name: /Konsultasi via WhatsApp/i });
+    expect(waLink).toHaveAttribute('href', expect.stringContaining('wa.me/628569000604'));
   });
 
   it('toggles mobile hamburger menu with section links', () => {
@@ -42,6 +52,8 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
     render(<App />);
     fireEvent.click(screen.getAllByRole('button', { name: /Portal Klien/i })[0]);
     expect(screen.getByText('Portal Pemantauan Pesanan Klien')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText(/Contoh: SJC-2026-001/i), { target: { value: 'SJC-2026-001' } });
+    fireEvent.change(screen.getByPlaceholderText(/0812-8890-1122/i), { target: { value: '0812-8890-1122' } });
     fireEvent.click(screen.getByRole('button', { name: /Buka Pesanan/i }));
     expect(await screen.findByText('Ibu Ratna Kusuma')).toBeInTheDocument();
     expect(screen.queryByText(/HPP/i)).not.toBeInTheDocument();
@@ -49,8 +61,9 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
 
   it('allows Admin to login via full-screen portal and access Business Settings + Account Security while keeping Developer Console hidden', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Portal Internal Tim/i }));
     expect(screen.getByText(/Login Administrator Bisnis/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Panduan Akun Preview/i)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'admin@sajiancatering.id' } });
     fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'Admin#2026' } });
@@ -64,7 +77,7 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
 
   it('gates Kitchen dashboard behind email/password authentication and enforces role scope', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Portal Internal Tim/i }));
     fireEvent.click(screen.getByRole('tab', { name: /Dapur/i }));
 
     fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'dapur' } });

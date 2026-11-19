@@ -128,7 +128,7 @@ export function StaffAuthPage({ initialRole = ROLES.ADMIN, initialMode = 'login'
 
   const activePortal = PORTAL_ROLES.find((r) => r.id === selectedRole) || PORTAL_ROLES[0];
   const activeScopes = getRoleScopes(selectedRole);
-  const showPreviewHelper = backendStatus !== 'connected' || IS_DEV_PREVIEW;
+  const showPreviewHelper = IS_DEV_PREVIEW;
   const brand = config?.brand || {};
 
   const openForgotPassword = () => {

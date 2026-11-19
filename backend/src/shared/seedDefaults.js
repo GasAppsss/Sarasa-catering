@@ -50,16 +50,16 @@ export const INITIAL_BRAND = {
 };
 
 export const INITIAL_BUSINESS = {
-  whatsappNumber: '6281234567890',
-  phoneDisplay: '0812-3456-7890',
+  whatsappNumber: '628569000604',
+  phoneDisplay: '0856-9000-604',
   email: 'halo@sajiancatering.id',
   instagram: '@sajiancatering.id',
   address: 'Jl. Dharmawangsa Kuliner No. 88, Kebayoran Baru, Jakarta Selatan',
   serviceArea: 'Jakarta, Bogor, Depok, Tangerang, Bekasi (Jabodetabek)',
   operatingHours: 'Senin - Minggu, 07.00 - 21.00 WIB',
-  bankName: 'Bank BCA',
-  bankAccountNumber: '521-089-4412',
-  bankAccountHolder: 'PT Sajian Kuliner Nusantara',
+  bankName: 'Transfer Bank Resmi',
+  bankAccountNumber: 'Info via WhatsApp Admin',
+  bankAccountHolder: 'Sajian Catering',
   dpPercent: 50,
   dailyMaxPax: 600,
   minLeadDays: 1,

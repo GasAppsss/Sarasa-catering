@@ -9,6 +9,7 @@ const EMPTY_FORM = {
   name: '',
   category: 'Prasmanan',
   plateStyle: 'buffet',
+  imageUrl: '',
   price: 58000,
   hpp: 32000,
   minOrder: 40,
@@ -38,6 +39,7 @@ export function AdminCatalogTab() {
       name: pkg.name,
       category: pkg.category,
       plateStyle: pkg.plateStyle || 'buffet',
+      imageUrl: pkg.imageUrl || '',
       price: pkg.price,
       hpp: pkg.hpp || 0,
       minOrder: pkg.minOrder,
@@ -69,6 +71,7 @@ export function AdminCatalogTab() {
         name: form.name.trim(),
         category: form.category,
         plateStyle: form.plateStyle,
+        imageUrl: form.imageUrl.trim() || undefined,
         price: Number(form.price),
         hpp: Number(form.hpp),
         minOrder: Number(form.minOrder),
@@ -181,6 +184,16 @@ export function AdminCatalogTab() {
                 <option value="roast">Roast</option>
                 <option value="snack">Snack</option>
               </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-[11px] font-bold uppercase text-stone-600 mb-1">URL Foto Asli Hidangan (Opsional)</label>
+              <input
+                type="url"
+                value={form.imageUrl}
+                onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))}
+                placeholder="https://... (kosongkan untuk memakai ilustrasi piring otomatis)"
+                className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm"
+              />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold uppercase text-stone-600 mb-1">Catatan Porsi &amp; Alergen (pisahkan koma)</label>

@@ -9,9 +9,9 @@ Platform web fullstack modular untuk **Sajian Catering** yang menggabungkan fron
 | Role | Cara Akses | Scope & Fitur Utama | Pembatasan |
 | :--- | :--- | :--- | :--- |
 | **Klien (`client`)** | Publik langsung + tab **Portal Klien** | Showcase interaktif, filter katalog lengkap, kalender kapasitas, kalkulator booking, pelacak & timeline pesanan, update catatan alergi, cetak invoice | Tidak melihat HPP/margin internal maupun data pelanggan lain |
-| **Admin Dapur (`kitchen`)** | Footer → **Login Portal Tim** (PIN default: `1122`) | Kitchen Command Center, agregasi Kitchen Sheet, checklist tahap produksi (`Persiapan Bahan → Sedang Dimasak → QC & Packing → Siap Kirim`), cetak ticket produksi | Tidak dapat melihat nominal margin/HPP atau mengubah pengaturan bisnis/pengembang |
-| **Administrator (`admin`)** | Footer → **Login Portal Tim** (PIN default: `2233`) | KPI omzet & margin kotor, verifikasi DP, manajemen status pesanan, CRUD katalog & harga, **Pengaturan Bisnis** (kontak, rekening, kapasitas/hari, blokir tanggal, FAQ & S&K) | Tidak mengakses pengaturan internal pengembang (theme tokens, feature flags, PIN sistem) |
-| **Pengembang (`developer`)** | `Ctrl+Shift+D`, `?dev=1`, atau Portal Tim → *Akses Pengembang* (PIN default: `9900`) | **Developer Console**: kustomisasi CSS Design Tokens langsung, Feature Flags, manajemen PIN & audit RBAC, koneksi Backend API, ekspor/impor JSON, dan toggle *Mode Demo Quick-Switch* | Akses penuh |
+| **Admin Dapur (`kitchen`)** | Footer → **Portal Internal Tim** (`dapur@sajiancatering.id`) | Kitchen Command Center, agregasi Kitchen Sheet, checklist tahap produksi (`Persiapan Bahan → Sedang Dimasak → QC & Packing → Siap Kirim`), cetak ticket produksi | Tidak dapat melihat nominal margin/HPP atau mengubah pengaturan bisnis/pengembang |
+| **Administrator (`admin`)** | Footer → **Portal Internal Tim** (`admin@sajiancatering.id`) | KPI omzet & margin kotor, verifikasi DP, manajemen status pesanan, CRUD katalog & harga, **Pengaturan Bisnis**, dan **Keamanan & Akun** (ganti password + Recovery Key) | Tidak mengakses pengaturan internal pengembang (theme tokens, feature flags, akun tim lain) |
+| **Pengembang (`developer`)** | `Ctrl+Shift+D`, `?dev=1`, atau Portal Login → tab *Developer* (`dev@sajiancatering.id`) | **Developer Console**: kustomisasi CSS Design Tokens langsung, Feature Flags, manajemen akun & audit RBAC, koneksi Backend API, ekspor/impor JSON, dan toggle *Mode Demo Quick-Switch* | Akses penuh |
 
 ---
 
@@ -32,7 +32,7 @@ npm install
 npm test
 npm run dev
 ```
-Aplikasi berjalan di `http://localhost:5173/Sarasa-catering/`. Untuk menyambungkan ke API lokal saat mode demo, buka **Developer Console (`Ctrl+Shift+D` → PIN `9900`)** lalu isi URL `http://localhost:4000`, atau set `VITE_API_URL`.
+Aplikasi berjalan di `http://localhost:5173/sajian-catering/`. Untuk menyambungkan ke API lokal saat mode demo, buka **Developer Console (`Ctrl+Shift+D` → login `dev@sajiancatering.id`)** lalu isi URL `http://localhost:4000`, atau set `VITE_API_URL`.
 
 ---
 

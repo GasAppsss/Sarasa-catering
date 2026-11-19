@@ -11,7 +11,7 @@ describe('Staff Login, Forgot Password (OTP & Recovery Key) & Account Security',
 
   it('completes Forgot Password via 6-digit Email OTP for Admin and signs in with new password', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Portal Internal Tim/i }));
     fireEvent.click(screen.getByRole('button', { name: /Lupa Password\?/i }));
 
     expect(screen.getByRole('heading', { name: /Lupa Password/i })).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('Staff Login, Forgot Password (OTP & Recovery Key) & Account Security',
 
   it('completes Forgot Password via Master Recovery Key for Developer and signs in with new password', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /^Developer$/i }));
+    fireEvent.keyDown(window, { key: 'D', ctrlKey: true, shiftKey: true });
     expect(screen.getByText(/Login Pengembang Sistem/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Lupa Password\?/i }));
@@ -80,7 +80,7 @@ describe('Staff Login, Forgot Password (OTP & Recovery Key) & Account Security',
 
   it('allows Admin to change own password and rotate Master Recovery Key inside Account Security tab', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Portal Internal Tim/i }));
     fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'admin' } });
     fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'Admin#2026' } });
     fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard Admin/i }));
@@ -105,7 +105,7 @@ describe('Staff Login, Forgot Password (OTP & Recovery Key) & Account Security',
 
   it('enforces brute-force lockout after 5 consecutive failed logins', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Portal Internal Tim/i }));
     fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'admin' } });
     fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'SalahTerus9' } });
 

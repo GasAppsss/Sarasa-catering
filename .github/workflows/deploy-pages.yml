@@ -46,12 +46,12 @@ jobs:
       - name: Build Production (origin/main) into ./site
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_BASE_PATH: /Sarasa-catering/
+          VITE_BASE_PATH: /sajian-catering/
         run: |
           git worktree add _prod_main origin/main
           cd _prod_main
           npm ci
-          npm run build
+          npx vite build --base=/sajian-catering/
           cd ..
           mkdir -p site
           cp -r _prod_main/dist/* site/
@@ -60,13 +60,13 @@ jobs:
       - name: Build Dev Preview (origin/dev) into ./site/preview
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_BASE_PATH: /Sarasa-catering/preview/
+          VITE_BASE_PATH: /sajian-catering/preview/
         run: |
           if git show-ref --verify --quiet refs/remotes/origin/dev; then
             git worktree add _dev_preview origin/dev
             cd _dev_preview
             npm ci
-            npm run build
+            npx vite build --base=/sajian-catering/preview/
             cd ..
             mkdir -p site/preview
             cp -r _dev_preview/dist/* site/preview/

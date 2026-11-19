@@ -16,11 +16,16 @@ import { formatRupiah, formatTanggalIndo } from '../../utils/format.js';
 import { InvoiceModal } from '../../components/shared/InvoiceModal.jsx';
 
 const ORDER_STEPS = ['Menunggu DP', 'DP Lunas', 'Diproses Dapur', 'Dikirim', 'Selesai'];
+const IS_DEV_PREVIEW = Boolean(import.meta.env.BASE_URL?.includes('/preview'));
 
 export function ClientPortalView({ preloadedOrder, onBackToShowcase, onReorderPackage }) {
   const { config, trackClientOrder, updateClientNote, packages } = useApp();
-  const [orderIdInput, setOrderIdInput] = useState(preloadedOrder?.id || 'SJC-2026-001');
-  const [whatsappInput, setWhatsappInput] = useState(preloadedOrder?.whatsapp || '0812-8890-1122');
+  const [orderIdInput, setOrderIdInput] = useState(
+    preloadedOrder?.id || (IS_DEV_PREVIEW ? 'SJC-2026-001' : '')
+  );
+  const [whatsappInput, setWhatsappInput] = useState(
+    preloadedOrder?.whatsapp || (IS_DEV_PREVIEW ? '0812-8890-1122' : '')
+  );
   const [activeOrder, setActiveOrder] = useState(preloadedOrder || null);
   const [noteDraft, setNoteDraft] = useState(preloadedOrder?.notes || '');
   const [lookupError, setLookupError] = useState('');
@@ -71,7 +76,7 @@ export function ClientPortalView({ preloadedOrder, onBackToShowcase, onReorderPa
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full">
-            POV Klien • Self-Service Portal
+            Portal Pelanggan • Lacak Pesanan
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-dark mt-2">
             Portal Pemantauan Pesanan Klien
