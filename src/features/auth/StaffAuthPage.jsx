@@ -639,14 +639,15 @@ export function StaffAuthPage({ initialRole = ROLES.ADMIN, initialMode = 'login'
                       setResetStep(1);
                       setResetError('');
                     }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
                       resetMethod === 'otp'
                         ? 'bg-brand-dark text-amber-300 shadow-sm'
                         : 'text-stone-600 hover:text-brand-dark'
                     }`}
                   >
                     <Mail className="w-3.5 h-3.5 shrink-0" />
-                    <span>Email OTP 6-Digit</span>
+                    <span className="sm:hidden">Email OTP</span>
+                    <span className="hidden sm:inline">Email OTP 6-Digit</span>
                   </button>
                   <button
                     type="button"
@@ -657,14 +658,15 @@ export function StaffAuthPage({ initialRole = ROLES.ADMIN, initialMode = 'login'
                       setResetStep(1);
                       setResetError('');
                     }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
                       resetMethod === 'recovery_key'
                         ? 'bg-brand-dark text-amber-300 shadow-sm'
                         : 'text-stone-600 hover:text-brand-dark'
                     }`}
                   >
                     <KeyRound className="w-3.5 h-3.5 shrink-0" />
-                    <span>Master Recovery Key</span>
+                    <span className="sm:hidden">Recovery Key</span>
+                    <span className="hidden sm:inline">Master Recovery Key</span>
                   </button>
                 </div>
               )}
@@ -673,16 +675,16 @@ export function StaffAuthPage({ initialRole = ROLES.ADMIN, initialMode = 'login'
               {resetMethod === 'otp' && resetStep < 4 && (
                 <div className="grid grid-cols-3 gap-2 text-[11px]">
                   {[
-                    { num: 1, label: 'Identifikasi' },
-                    { num: 2, label: 'Kode OTP' },
-                    { num: 3, label: 'Sandi Baru' },
+                    { num: 1, label: 'Identifikasi', shortLabel: 'Akun' },
+                    { num: 2, label: 'Kode OTP', shortLabel: 'OTP' },
+                    { num: 3, label: 'Sandi Baru', shortLabel: 'Sandi' },
                   ].map((s) => {
                     const done = resetStep > s.num;
                     const active = resetStep === s.num;
                     return (
                       <div
                         key={s.num}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-bold ${
+                        className={`flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border font-bold ${
                           done
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                             : active
@@ -701,7 +703,8 @@ export function StaffAuthPage({ initialRole = ROLES.ADMIN, initialMode = 'login'
                         >
                           {done ? <Check className="w-2.5 h-2.5" /> : s.num}
                         </span>
-                        <span className="truncate">{s.label}</span>
+                        <span className="sm:hidden whitespace-nowrap">{s.shortLabel}</span>
+                        <span className="hidden sm:inline whitespace-nowrap">{s.label}</span>
                       </div>
                     );
                   })}
