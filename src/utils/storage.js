@@ -1,13 +1,14 @@
 export const STORAGE_KEYS = Object.freeze({
-  CONFIG: 'sajian_v2_config',
-  PACKAGES: 'sajian_v2_packages',
-  STALLS: 'sajian_v2_stalls',
-  ORDERS: 'sajian_v2_orders',
-  PINS: 'sajian_v2_role_pins',
-  AUDIT: 'sajian_v2_audit_logs',
-  API_URL: 'sajian_v2_api_url',
-  TOKEN: 'sajian_v2_auth_token',
-  ROLE: 'sajian_v2_auth_role',
+  CONFIG: 'sajian_v3_config',
+  PACKAGES: 'sajian_v3_packages',
+  STALLS: 'sajian_v3_stalls',
+  ORDERS: 'sajian_v3_orders',
+  PINS: 'sajian_v3_role_pins',
+  ACCOUNTS: 'sajian_v3_staff_accounts',
+  AUDIT: 'sajian_v3_audit_logs',
+  API_URL: 'sajian_v3_api_url',
+  TOKEN: 'sajian_v3_auth_token',
+  ROLE: 'sajian_v3_auth_role',
 });
 
 export function readStorageJson(key, fallback) {

@@ -1,7 +1,34 @@
 export const DEFAULT_ROLE_PINS = {
-  kitchen: '1122',
-  admin: '2233',
-  developer: '9900',
+  kitchen: 'Dapur#2026',
+  admin: 'Admin#2026',
+  developer: 'Dev#Sajian99',
+};
+
+export const DEFAULT_STAFF_ACCOUNTS = {
+  kitchen: {
+    role: 'kitchen',
+    username: 'dapur',
+    email: 'dapur@sajiancatering.id',
+    displayName: 'Admin Dapur & Produksi',
+    password: DEFAULT_ROLE_PINS.kitchen,
+    recoveryKey: 'SJC-KTC-5N3B-2V8L',
+  },
+  admin: {
+    role: 'admin',
+    username: 'admin',
+    email: 'admin@sajiancatering.id',
+    displayName: 'Administrator Bisnis',
+    password: DEFAULT_ROLE_PINS.admin,
+    recoveryKey: 'SJC-ADM-7K9P-4X2M',
+  },
+  developer: {
+    role: 'developer',
+    username: 'developer',
+    email: 'dev@sajiancatering.id',
+    displayName: 'Pengembang Sistem',
+    password: DEFAULT_ROLE_PINS.developer,
+    recoveryKey: 'SJC-DEV-9Q4W-8R6T',
+  },
 };
 
 export function getDateOffsetIso(daysOffset = 0) {
@@ -23,16 +50,16 @@ export const INITIAL_BRAND = {
 };
 
 export const INITIAL_BUSINESS = {
-  whatsappNumber: '6281234567890',
-  phoneDisplay: '0812-3456-7890',
+  whatsappNumber: '628569000604',
+  phoneDisplay: '0856-9000-604',
   email: 'halo@sajiancatering.id',
   instagram: '@sajiancatering.id',
   address: 'Jl. Dharmawangsa Kuliner No. 88, Kebayoran Baru, Jakarta Selatan',
   serviceArea: 'Jakarta, Bogor, Depok, Tangerang, Bekasi (Jabodetabek)',
   operatingHours: 'Senin - Minggu, 07.00 - 21.00 WIB',
-  bankName: 'Bank BCA',
-  bankAccountNumber: '521-089-4412',
-  bankAccountHolder: 'PT Sajian Kuliner Nusantara',
+  bankName: 'Transfer Bank Resmi',
+  bankAccountNumber: 'Info via WhatsApp Admin',
+  bankAccountHolder: 'Sajian Catering',
   dpPercent: 50,
   dailyMaxPax: 600,
   minLeadDays: 1,
@@ -41,29 +68,29 @@ export const INITIAL_BUSINESS = {
 };
 
 export const THEME_PRESETS = {
-  'warm-editorial': {
-    label: 'Warm White Editorial',
+  'royal-emerald': {
+    label: 'Royal Emerald Gold',
     primary: '#064E3B',
-    primaryDark: '#052E23',
-    accent: '#D97706',
-    background: '#FAFAFA',
+    primaryDark: '#043927',
+    accent: '#F59E0B',
+    background: '#F5F3EE',
     surface: '#FFFFFF',
     radiusScale: 'rounded',
   },
-  'soft-ivory': {
-    label: 'Soft Ivory Heritage',
-    primary: '#065F46',
-    primaryDark: '#043927',
-    accent: '#B45309',
-    background: '#F8F7F4',
+  'terracotta-warm': {
+    label: 'Warm Terracotta Feast',
+    primary: '#7C2D12',
+    primaryDark: '#431407',
+    accent: '#D97706',
+    background: '#FDF8F4',
     surface: '#FFFFFF',
     radiusScale: 'rounded',
   },
   'slate-trust': {
-    label: 'Modern Slate Minimal',
+    label: 'Modern Slate Corporate',
     primary: '#0F172A',
     primaryDark: '#020617',
-    accent: '#2563EB',
+    accent: '#0284C7',
     background: '#F8FAFC',
     surface: '#FFFFFF',
     radiusScale: 'sharp',
@@ -71,8 +98,8 @@ export const THEME_PRESETS = {
 };
 
 export const INITIAL_THEME_TOKENS = {
-  presetId: 'warm-editorial',
-  ...THEME_PRESETS['warm-editorial'],
+  presetId: 'royal-emerald',
+  ...THEME_PRESETS['royal-emerald'],
   reduceMotion: false,
 };
 

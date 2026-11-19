@@ -3,11 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { hashPin } from '../security/auth.js';
+import { normalizeIdentifier, normalizeRecoveryKey } from '../shared/passwordPolicy.js';
 import { ROLE_META } from '../shared/rbac.js';
 import {
   buildDefaultAppConfig,
   buildInitialOrders,
-  DEFAULT_ROLE_PINS,
+  DEFAULT_STAFF_ACCOUNTS,
   INITIAL_PACKAGES,
   INITIAL_STALLS,
 } from '../shared/seedDefaults.js';
@@ -41,11 +42,29 @@ export function createPostgresStore(databaseUrl) {
     }
     const { rows: credRows } = await pool.query('SELECT COUNT(*)::int AS c FROM staff_credentials');
     if (credRows[0].c === 0) {
-      for (const [role, pin] of Object.entries(DEFAULT_ROLE_PINS)) {
+      for (const acc of Object.values(DEFAULT_STAFF_ACCOUNTS)) {
         await pool.query(
-          `INSERT INTO staff_credentials (role, display_name, pin_hash)
-           VALUES ($1, $2, $3) ON CONFLICT (role) DO NOTHING`,
-          [role, ROLE_META[role]?.label || role, hashPin(pin)]
+          `INSERT INTO staff_credentials (role, username, email, display_name, pin_hash, recovery_key_hash)
+           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (role) DO NOTHING`,
+          [
+            acc.role,
+            acc.username,
+            acc.email,
+            acc.displayName || ROLE_META[acc.role]?.label || acc.role,
+            hashPin(acc.password),
+            hashPin(normalizeRecoveryKey(acc.recoveryKey)),
+          ]
+        );
+      }
+    } else {
+      for (const acc of Object.values(DEFAULT_STAFF_ACCOUNTS)) {
+        await pool.query(
+          `UPDATE staff_credentials
+           SET username = COALESCE(username, $1),
+               email = COALESCE(email, $2),
+               recovery_key_hash = COALESCE(recovery_key_hash, $3)
+           WHERE role = $4`,
+          [acc.username, acc.email, hashPin(normalizeRecoveryKey(acc.recoveryKey)), acc.role]
         );
       }
     }
@@ -190,13 +209,85 @@ export function createPostgresStore(databaseUrl) {
       const { rows } = await pool.query('SELECT * FROM staff_credentials WHERE role = $1', [role]);
       return rows[0] || null;
     },
-    async setCredential(role, pin) {
-      await pool.query(
-        `INSERT INTO staff_credentials (role, display_name, pin_hash, updated_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (role) DO UPDATE SET pin_hash = EXCLUDED.pin_hash, updated_at = NOW()`,
-        [role, ROLE_META[role]?.label || role, hashPin(pin)]
+    async getCredentialByIdentifier(identifier) {
+      const key = normalizeIdentifier(identifier);
+      if (!key) return null;
+      const { rows } = await pool.query(
+        'SELECT * FROM staff_credentials WHERE LOWER(email) = $1 OR LOWER(username) = $1',
+        [key]
       );
+      return rows[0] || null;
+    },
+    async listStaffAccounts() {
+      const { rows } = await pool.query(
+        `SELECT role, username, email, display_name AS "displayName",
+                failed_attempts AS "failedAttempts", locked_until AS "lockedUntil", updated_at AS "updatedAt"
+         FROM staff_credentials ORDER BY role ASC`
+      );
+      return rows;
+    },
+    async setCredential(role, newPassword) {
+      const fallback = DEFAULT_STAFF_ACCOUNTS[role];
+      await pool.query(
+        `INSERT INTO staff_credentials (role, username, email, display_name, pin_hash, recovery_key_hash, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         ON CONFLICT (role) DO UPDATE SET
+           pin_hash = EXCLUDED.pin_hash,
+           reset_code_hash = NULL,
+           reset_expires_at = NULL,
+           reset_attempts = 0,
+           failed_attempts = 0,
+           locked_until = NULL,
+           updated_at = NOW()`,
+        [
+          role,
+          fallback?.username || role,
+          fallback?.email || `${role}@sajiancatering.id`,
+          fallback?.displayName || ROLE_META[role]?.label || role,
+          hashPin(newPassword),
+          hashPin(normalizeRecoveryKey(fallback?.recoveryKey || `SJC-${role.toUpperCase()}-0000-0000`)),
+        ]
+      );
+    },
+    async updateRecoveryKey(role, newRecoveryKey) {
+      await pool.query(
+        'UPDATE staff_credentials SET recovery_key_hash = $1, updated_at = NOW() WHERE role = $2',
+        [hashPin(normalizeRecoveryKey(newRecoveryKey)), role]
+      );
+    },
+    async saveResetChallenge(role, codeHash, expiresAtIso) {
+      await pool.query(
+        `UPDATE staff_credentials
+         SET reset_code_hash = $1, reset_expires_at = $2, reset_attempts = 0
+         WHERE role = $3`,
+        [codeHash, expiresAtIso, role]
+      );
+    },
+    async incrementResetAttempts(role) {
+      const { rows } = await pool.query(
+        'UPDATE staff_credentials SET reset_attempts = reset_attempts + 1 WHERE role = $1 RETURNING reset_attempts AS attempts',
+        [role]
+      );
+      return Number(rows[0]?.attempts || 0);
+    },
+    async clearResetChallenge(role) {
+      await pool.query(
+        'UPDATE staff_credentials SET reset_code_hash = NULL, reset_expires_at = NULL, reset_attempts = 0 WHERE role = $1',
+        [role]
+      );
+    },
+    async recordLoginFailure(role, maxAttempts = 5, lockMs = 120000) {
+      const { rows } = await pool.query('SELECT failed_attempts FROM staff_credentials WHERE role = $1', [role]);
+      const nextAttempts = Number(rows[0]?.failed_attempts || 0) + 1;
+      const lockedUntil = nextAttempts >= maxAttempts ? new Date(Date.now() + lockMs).toISOString() : null;
+      await pool.query(
+        'UPDATE staff_credentials SET failed_attempts = $1, locked_until = $2 WHERE role = $3',
+        [nextAttempts, lockedUntil, role]
+      );
+      return { failedAttempts: nextAttempts, lockedUntil };
+    },
+    async clearLoginFailures(role) {
+      await pool.query('UPDATE staff_credentials SET failed_attempts = 0, locked_until = NULL WHERE role = $1', [role]);
     },
     async listPackages() {
       const { rows } = await pool.query('SELECT * FROM packages ORDER BY created_at ASC, id ASC');

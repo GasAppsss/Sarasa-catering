@@ -1,9 +1,113 @@
 import { z } from 'zod';
+import { getPasswordPolicyError } from '../shared/passwordPolicy.js';
 import { ROLES } from '../shared/rbac.js';
 
-export const LoginSchema = z.object({
-  role: z.enum([ROLES.KITCHEN, ROLES.ADMIN, ROLES.DEVELOPER]),
-  pin: z.string().trim().min(4, 'PIN minimal 4 karakter').max(32, 'PIN terlalu panjang'),
+const StaffRoleEnum = z.enum([ROLES.KITCHEN, ROLES.ADMIN, ROLES.DEVELOPER]);
+
+const StrongPasswordSchema = z
+  .string()
+  .min(8, 'Password minimal 8 karakter')
+  .max(72, 'Password terlalu panjang')
+  .superRefine((val, ctx) => {
+    const err = getPasswordPolicyError(val);
+    if (err) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: err });
+    }
+  });
+
+export const LoginSchema = z
+  .object({
+    identifier: z.string().trim().min(3, 'Masukkan email atau username').max(120).optional(),
+    password: z.string().min(4, 'Password wajib diisi').max(72).optional(),
+    role: StaffRoleEnum.optional(),
+    pin: z.string().trim().min(4).max(72).optional(),
+    rememberMe: z.boolean().optional().default(false),
+  })
+  .superRefine((data, ctx) => {
+    const hasAccountCreds = Boolean(data.identifier && data.password);
+    const hasLegacyCreds = Boolean(data.role && (data.pin || data.password));
+    if (!hasAccountCreds && !hasLegacyCreds) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Email/username dan password wajib diisi.',
+        path: ['identifier'],
+      });
+    }
+  });
+
+export const ForgotPasswordSchema = z.object({
+  identifier: z.string().trim().min(3, 'Masukkan email atau username akun').max(120),
+  role: StaffRoleEnum.optional(),
+});
+
+export const VerifyResetCodeSchema = z.object({
+  identifier: z.string().trim().min(3, 'Identifier wajib diisi').max(120),
+  code: z.string().trim().regex(/^\d{6}$/, 'Kode OTP harus 6 digit angka'),
+});
+
+export const ResetPasswordSchema = z
+  .object({
+    method: z.enum(['otp', 'recovery_key']),
+    identifier: z.string().trim().min(3, 'Masukkan email atau username akun').max(120),
+    code: z.string().trim().optional(),
+    recoveryKey: z.string().trim().optional(),
+    newPassword: StrongPasswordSchema,
+    confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Konfirmasi password tidak cocok.',
+        path: ['confirmPassword'],
+      });
+    }
+    if (data.method === 'otp' && !/^\d{6}$/.test(data.code || '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Kode OTP harus terdiri dari 6 digit angka.',
+        path: ['code'],
+      });
+    }
+    if (data.method === 'recovery_key' && String(data.recoveryKey || '').trim().length < 8) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Master Recovery Key tidak valid.',
+        path: ['recoveryKey'],
+      });
+    }
+  });
+
+export const ChangePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(4, 'Password saat ini wajib diisi').max(72),
+    newPassword: StrongPasswordSchema,
+    confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Konfirmasi password tidak cocok.',
+        path: ['confirmPassword'],
+      });
+    }
+    if (data.currentPassword === data.newPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Password baru harus berbeda dari password saat ini.',
+        path: ['newPassword'],
+      });
+    }
+  });
+
+export const RotateRecoveryKeySchema = z.object({
+  currentPassword: z.string().min(4, 'Masukkan password Anda untuk verifikasi').max(72),
+  targetRole: StaffRoleEnum.optional(),
+});
+
+export const DeveloperResetPasswordSchema = z.object({
+  newPassword: StrongPasswordSchema,
 });
 
 export const CreateOrderSchema = z.object({
@@ -52,6 +156,7 @@ export const PackageUpsertSchema = z.object({
   rankLabel: z.string().trim().max(60).optional().default('#Baru Rilis'),
   category: z.enum(['Prasmanan', 'Nasi Box', 'Tumpeng', 'Snack Box', 'Live Stall']),
   plateStyle: z.enum(['buffet', 'bento', 'tumpeng', 'roast', 'snack']).default('buffet'),
+  imageUrl: z.string().trim().url().or(z.literal('')).optional(),
   accentTint: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#064E3B'),
   price: z.coerce.number().int().min(1000).max(5000000),
   hpp: z.coerce.number().int().min(500).max(5000000),

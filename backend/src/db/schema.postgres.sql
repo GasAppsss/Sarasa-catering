@@ -1,9 +1,26 @@
 CREATE TABLE IF NOT EXISTS staff_credentials (
   role TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
   pin_hash TEXT NOT NULL,
+  recovery_key_hash TEXT NOT NULL,
+  reset_code_hash TEXT,
+  reset_expires_at TIMESTAMPTZ,
+  reset_attempts INTEGER NOT NULL DEFAULT 0,
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS recovery_key_hash TEXT;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS reset_code_hash TEXT;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS reset_expires_at TIMESTAMPTZ;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS reset_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE staff_credentials ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS packages (
   id TEXT PRIMARY KEY,
