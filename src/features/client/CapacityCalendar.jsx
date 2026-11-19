@@ -9,7 +9,7 @@ export function CapacityCalendar({ selectedDate, onSelectDate, onErrorMessage })
   const dailyMaxPax = config.business?.dailyMaxPax || 600;
 
   return (
-    <section id="capacity-calendar-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+    <section id="capacity-calendar-section" className="sc-container sc-section">
       <Reveal>
         <div className="bg-white rounded-[var(--sc-radius)] border border-stone-200/90 p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -39,7 +39,7 @@ export function CapacityCalendar({ selectedDate, onSelectDate, onErrorMessage })
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {calendarDates.map((d) => {
               const isSelected = d.dateStr === selectedDate;
               const isFull = d.status === 'Penuh';

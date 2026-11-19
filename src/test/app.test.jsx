@@ -17,6 +17,17 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
     expect(screen.queryByText('Kitchen Command Center')).not.toBeInTheDocument();
   });
 
+  it('toggles mobile hamburger menu with section links', () => {
+    render(<App />);
+    const toggle = screen.getByRole('button', { name: /Buka menu/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: /Tutup menu/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('button', { name: 'Katalog Menu' }).length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByRole('button', { name: /Tutup menu/i }));
+    expect(screen.getAllByRole('button', { name: 'Katalog Menu' }).length).toBe(1);
+  });
+
   it('opens slide-over package detail drawer and pre-selects package in booking calculator', () => {
     render(<App />);
     fireEvent.click(screen.getAllByRole('button', { name: /Detail Lengkap/i })[0]);

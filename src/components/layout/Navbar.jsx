@@ -4,6 +4,7 @@ import {
   Code2,
   LayoutDashboard,
   LogOut,
+  Menu,
   ShieldCheck,
   Sparkles,
   Store,
@@ -13,6 +14,8 @@ import {
 } from 'lucide-react';
 import { ROLE_META, ROLES } from '../../config/rbac.js';
 import { useApp } from '../../context/AppContext.jsx';
+
+const IS_DEV_PREVIEW = Boolean(import.meta.env.BASE_URL?.includes('/preview'));
 
 export function Navbar({ onOpenTeamAuth }) {
   const {
@@ -26,12 +29,15 @@ export function Navbar({ onOpenTeamAuth }) {
   } = useApp();
 
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { brand, business, featureFlags } = config;
   const activeOrdersCount = orders.filter((o) => o.status !== 'Selesai').length;
   const isStaff = activeRole !== ROLES.CLIENT;
   const showDemoSwitcher = Boolean(featureFlags?.enableDemoQuickSwitch) || activeRole === ROLES.DEVELOPER;
+  const showPortal = featureFlags?.enableClientPortal !== false;
 
   const scrollToSection = (sectionId) => {
+    setMobileOpen(false);
     if (activeView !== 'showcase') {
       navigateView('showcase');
       setTimeout(() => {
@@ -42,10 +48,42 @@ export function Navbar({ onOpenTeamAuth }) {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const goTo = (view) => {
+    setMobileOpen(false);
+    navigateView(view);
+  };
+
+  const sectionLinks = [
+    { id: 'hero-showcase-section', label: 'Showcase' },
+    { id: 'catalog-section', label: 'Katalog Menu' },
+    { id: 'booking-calculator-section', label: 'Kalkulator' },
+    ...(featureFlags?.enableFaqSection !== false ? [{ id: 'info-faq-section', label: 'Profil & FAQ' }] : []),
+  ];
+
+  const staffLinks = [
+    activeRole === ROLES.KITCHEN && { view: 'kitchen', label: 'Dapur', icon: ChefHat },
+    (activeRole === ROLES.ADMIN || activeRole === ROLES.DEVELOPER) && {
+      view: 'admin',
+      label: 'Admin',
+      icon: LayoutDashboard,
+      count: activeOrdersCount,
+    },
+    activeRole === ROLES.DEVELOPER && { view: 'developer', label: 'Dev Config', icon: Code2 },
+  ].filter(Boolean);
+
+  const portalButtonClass = (compact) =>
+    `inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+      compact ? 'w-9 h-9' : 'px-3.5 h-9'
+    } ${
+      activeView === 'client-portal'
+        ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-emerald-950 shadow-sm'
+        : 'bg-emerald-900/90 hover:bg-emerald-800 text-amber-300 border border-amber-400/40'
+    }`;
+
   return (
     <header className="no-print sticky top-0 z-40 shadow-lg border-b border-emerald-800/80 backdrop-blur-md bg-brand-dark/95 text-white">
       {business?.announcementBanner && activeView === 'showcase' && !bannerDismissed && (
-        <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-emerald-950 text-[11px] sm:text-xs font-extrabold py-1.5 px-4 flex items-center justify-center gap-2 relative">
+        <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-emerald-950 text-[11px] sm:text-xs font-extrabold py-1.5 pl-4 pr-10 flex items-center justify-center gap-2 relative">
           <Sparkles className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">{business.announcementBanner}</span>
           <button
@@ -59,147 +97,154 @@ export function Navbar({ onOpenTeamAuth }) {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex items-center justify-between w-full md:w-auto gap-3">
-          <button
-            type="button"
-            onClick={() => navigateView('showcase')}
-            className="flex items-center gap-3 text-left cursor-pointer group min-w-0"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md shadow-amber-500/20 animate-glow shrink-0 group-hover:scale-105 transition-transform">
-              <Utensils className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-tight text-white">
-                  {brand?.shortName || 'SAJIAN'}
+      <div className="sc-container h-16 flex items-center justify-between gap-4">
+        <button
+          type="button"
+          onClick={() => goTo('showcase')}
+          className="flex items-center gap-3 text-left cursor-pointer group min-w-0"
+        >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md shadow-amber-500/20 animate-glow shrink-0 group-hover:scale-105 transition-transform">
+            <Utensils className="w-5 h-5 stroke-[2.5]" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-lg leading-none tracking-tight text-white">
+                {brand?.shortName || 'SAJIAN'}
+              </span>
+              <span className="text-amber-400 font-light leading-none tracking-widest text-sm">
+                {brand?.subName || 'CATERING'}
+              </span>
+              {IS_DEV_PREVIEW && (
+                <span className="text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400 text-emerald-950 font-extrabold">
+                  Dev Preview
                 </span>
-                <span className="text-amber-400 font-light tracking-widest text-sm">
-                  {brand?.subName || 'CATERING'}
-                </span>
-                {brand?.badgeText && (
-                  <span className="hidden lg:inline-block text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-900/90 text-amber-300 font-semibold border border-amber-500/30">
-                    {brand.badgeText}
-                  </span>
-                )}
-                {import.meta.env.BASE_URL?.includes('/preview') && (
-                  <span className="inline-block text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-400 text-emerald-950 font-extrabold shadow-sm">
-                    DEV PREVIEW
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-emerald-300/85 truncate">{brand?.tagline}</p>
+              )}
             </div>
-          </button>
-        </div>
+            {brand?.tagline && (
+              <p className="hidden xl:block mt-1 text-[11px] leading-none text-emerald-300/85 truncate max-w-[340px]">
+                {brand.tagline}
+              </p>
+            )}
+          </div>
+        </button>
 
-        <nav aria-label="Navigasi Utama" className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => scrollToSection('hero-showcase-section')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeView === 'showcase'
-                ? 'bg-white/15 text-amber-300 font-bold'
-                : 'text-emerald-100 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            Showcase
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollToSection('catalog-section')}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-          >
-            Katalog Menu
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollToSection('booking-calculator-section')}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-          >
-            Kalkulator
-          </button>
-          {featureFlags?.enableFaqSection !== false && (
-            <button
-              type="button"
-              onClick={() => scrollToSection('info-faq-section')}
-              className="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-            >
-              Profil &amp; FAQ
-            </button>
-          )}
-          {featureFlags?.enableClientPortal !== false && (
-            <button
-              type="button"
-              onClick={() => navigateView('client-portal')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                activeView === 'client-portal'
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-emerald-950 shadow-sm scale-[1.02]'
-                  : 'bg-emerald-900/90 hover:bg-emerald-800 text-amber-300 border border-amber-400/40'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Portal Klien</span>
-            </button>
-          )}
+        <nav aria-label="Navigasi Utama" className="hidden md:flex items-center gap-1">
+          {sectionLinks.map((link) => {
+            const isActive = link.id === 'hero-showcase-section' && activeView === 'showcase';
+            return (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollToSection(link.id)}
+                className={`px-3 h-9 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  isActive ? 'bg-white/15 text-amber-300 font-bold' : 'text-emerald-100 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {link.label}
+              </button>
+            );
+          })}
+        </nav>
 
+        <div className="flex items-center gap-2 shrink-0">
           {isStaff && (
-            <div className="flex items-center gap-1.5 pl-2 border-l border-white/20">
-              {activeRole === ROLES.KITCHEN && (
+            <div className="hidden md:flex items-center gap-1.5 pr-2 mr-1 border-r border-white/20">
+              {staffLinks.map(({ view, label, icon: Icon, count }) => (
                 <button
+                  key={view}
                   type="button"
-                  onClick={() => navigateView('kitchen')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                    activeView === 'kitchen' ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-white'
+                  onClick={() => goTo(view)}
+                  className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-bold cursor-pointer ${
+                    activeView === view ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-white hover:bg-white/25'
                   }`}
                 >
-                  <ChefHat className="w-3.5 h-3.5" />
-                  <span>Dapur</span>
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{label}</span>
+                  {typeof count === 'number' && (
+                    <span className="px-1.5 rounded-full bg-emerald-950 text-amber-300 text-[10px] tabular-nums">{count}</span>
+                  )}
                 </button>
-              )}
-              {(activeRole === ROLES.ADMIN || activeRole === ROLES.DEVELOPER) && (
-                <button
-                  type="button"
-                  onClick={() => navigateView('admin')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                    activeView === 'admin' ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-white'
-                  }`}
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  <span>Admin</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-amber-300 text-[10px]">
-                    {activeOrdersCount}
-                  </span>
-                </button>
-              )}
-              {activeRole === ROLES.DEVELOPER && (
-                <button
-                  type="button"
-                  onClick={() => navigateView('developer')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                    activeView === 'developer' ? 'bg-amber-400 text-emerald-950' : 'bg-white/15 text-amber-300'
-                  }`}
-                >
-                  <Code2 className="w-3.5 h-3.5" />
-                  <span>Dev Config</span>
-                </button>
-              )}
+              ))}
               <button
                 type="button"
                 onClick={logoutToClient}
                 title="Keluar ke Mode Klien"
-                className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 cursor-pointer"
+                aria-label="Keluar ke Mode Klien"
+                className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
-        </nav>
+
+          {showPortal && (
+            <button type="button" onClick={() => goTo('client-portal')} className={portalButtonClass(false)}>
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Portal Klien</span>
+              <span className="sm:hidden">Portal</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            aria-label={mobileOpen ? 'Tutup menu' : 'Buka menu'}
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="md:hidden w-9 h-9 inline-flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
+      {mobileOpen && (
+        <div className="md:hidden border-t border-white/10 bg-brand-dark animate-menu-drop">
+          <div className="sc-container py-3 grid gap-1">
+            {sectionLinks.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollToSection(link.id)}
+                className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-emerald-50 hover:bg-white/10 cursor-pointer"
+              >
+                {link.label}
+              </button>
+            ))}
+            {isStaff && (
+              <div className="mt-2 pt-3 border-t border-white/10 grid grid-cols-2 gap-2">
+                {staffLinks.map(({ view, label, icon: Icon }) => (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => goTo(view)}
+                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold cursor-pointer ${
+                      activeView === view ? 'bg-amber-400 text-emerald-950' : 'bg-white/10 text-white'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    logoutToClient();
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-100 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Keluar</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showDemoSwitcher && (
-        <div className="bg-black/30 border-t border-white/10 px-4 py-1.5">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[11px]">
+        <div className="bg-black/30 border-t border-white/10 py-1.5">
+          <div className="sc-container flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <span className="inline-flex items-center gap-1.5 text-amber-300 font-semibold">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Demo Quick-Switch POV (Aktif: {ROLE_META[activeRole]?.shortLabel}):</span>
@@ -216,9 +261,7 @@ export function Navbar({ onOpenTeamAuth }) {
                   type="button"
                   onClick={() => quickSwitchDemoRole(id)}
                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
-                    activeRole === id
-                      ? 'bg-amber-400 text-emerald-950'
-                      : 'bg-white/10 text-emerald-100 hover:bg-white/20'
+                    activeRole === id ? 'bg-amber-400 text-emerald-950' : 'bg-white/10 text-emerald-100 hover:bg-white/20'
                   }`}
                 >
                   <Icon className="w-3 h-3" />

@@ -117,7 +117,7 @@ function AppShell() {
     }
 
     return (
-      <main className="pb-12">
+      <main className="pb-16 min-w-0 w-full">
         <HeroShowcase
           activeIndex={showcaseIdx}
           onSelectIndex={handleSelectShowcaseIndex}
@@ -153,7 +153,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen overflow-x-clip bg-brand-bg text-stone-800 font-sans selection:bg-amber-200 selection:text-emerald-950 flex flex-col justify-between">
-      <div>
+      <div className="min-w-0 w-full">
         <Navbar
           onOpenTeamAuth={() =>
             setAuthModalState({

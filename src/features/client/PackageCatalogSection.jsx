@@ -53,23 +53,35 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
   }, [activePackages, query, selectedCategory]);
 
   return (
-    <section id="catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+    <section id="catalog-section" className="sc-container sc-section">
       <Reveal>
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-7">
+        <div className="mb-8 space-y-5">
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-900 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full">
-              Koleksi Sajian &amp; Spesifikasi
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-dark mt-2">
-              Katalog Paket Catering Pilihan
-            </h2>
-            <p className="text-sm text-stone-600 mt-1">
+            <span className="sc-eyebrow">Koleksi Sajian &amp; Spesifikasi</span>
+            <h2 className="sc-h2">Katalog Paket Catering Pilihan</h2>
+            <p className="sc-lead">
               Klik <strong>Detail Lengkap</strong> untuk membuka rincian lauk, perlengkapan saji, dan informasi alergen.
             </p>
           </div>
 
           {config?.featureFlags?.enableCatalogFilter !== false && (
-            <div className="flex flex-col sm:flex-row sm:items-start gap-3 min-w-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 min-w-0">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0 -mx-1 px-1 py-0.5">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`shrink-0 px-4 h-10 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+                      selectedCategory === cat
+                        ? 'bg-brand-dark text-amber-300 shadow-md'
+                        : 'bg-white border border-stone-200 text-stone-600 hover:border-amber-400 hover:text-brand-dark'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
               <div className="relative shrink-0">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -77,24 +89,9 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Cari paket atau menu..."
-                  className="w-full sm:w-56 pl-9 pr-4 py-2 rounded-xl border border-stone-300 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800 shadow-sm"
+                  aria-label="Cari paket atau menu"
+                  className="w-full md:w-72 h-10 pl-10 pr-4 rounded-xl border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-800 shadow-sm"
                 />
-              </div>
-              <div className="flex flex-wrap gap-1.5 min-w-0">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
-                      selectedCategory === cat
-                        ? 'bg-brand-dark text-amber-300 shadow-md scale-[1.02]'
-                        : 'bg-white border border-stone-200 text-stone-600 hover:border-amber-400 hover:text-brand-dark'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
               </div>
             </div>
           )}
@@ -130,7 +127,7 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                       </div>
 
                       {pkg.servingNote && (
-                        <p className="text-xs font-semibold text-amber-800 bg-amber-50/70 border border-amber-200/60 px-3 py-1.5 rounded-xl">
+                        <p className="min-h-[3.25rem] flex items-center text-xs leading-snug font-semibold text-amber-800 bg-amber-50/70 border border-amber-200/60 px-3 py-2 rounded-xl">
                           {pkg.servingNote}
                         </p>
                       )}
@@ -139,18 +136,18 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                         {(pkg.items || []).slice(0, 4).map((item) => (
                           <li key={item} className="flex items-center gap-2">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>{item}</span>
+                            <span className="truncate">{item}</span>
                           </li>
                         ))}
                         {(pkg.items?.length || 0) > 4 && (
-                          <li className="text-[11px] font-bold text-emerald-800 pl-5">
+                          <li className="text-[11px] font-bold text-emerald-800 pl-[22px]">
                             +{pkg.items.length - 4} menu pelengkap lainnya
                           </li>
                         )}
                       </ul>
                     </div>
 
-                    <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-2">
+                    <div className="pt-4 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-base font-black text-brand-dark tabular-nums">
                           {formatRupiah(pkg.price)}
@@ -158,11 +155,11 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                         </p>
                         <p className="text-[11px] text-stone-500 font-medium">Min. {pkg.minOrder} pax</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="grid grid-cols-2 w-full sm:w-auto sm:flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => onOpenDetailDrawer(pkg)}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-stone-300 bg-[#FAF8F5] hover:bg-amber-50 hover:border-amber-400 text-stone-800 font-bold text-xs transition-colors cursor-pointer"
+                          className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border border-stone-300 bg-[#FAF8F5] hover:bg-amber-50 hover:border-amber-400 text-stone-800 font-bold text-xs transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5 text-amber-700" />
                           <span>Detail Lengkap</span>
@@ -170,7 +167,7 @@ export function PackageCatalogSection({ onSelectPackageForBooking, onOpenDetailD
                         <button
                           type="button"
                           onClick={() => onSelectPackageForBooking(pkg)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-dark hover:opacity-95 text-amber-300 font-extrabold text-xs shadow-sm cursor-pointer"
+                          className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl bg-brand-dark hover:opacity-95 text-amber-300 font-extrabold text-xs shadow-sm cursor-pointer"
                         >
                           <ShoppingBag className="w-3.5 h-3.5" />
                           <span>Pilih</span>

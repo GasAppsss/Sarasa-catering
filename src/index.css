@@ -58,6 +58,12 @@ body {
   50% { transform: translateY(-12px); }
 }
 
+@keyframes menuDrop {
+  0% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-menu-drop { animation: menuDrop 0.28s var(--ease-out-cubic) both; }
+
 @keyframes rotateSlow {
   from { transform: rotate(0); }
   to { transform: rotate(360deg); }
@@ -171,6 +177,15 @@ body {
 .tabular-nums { font-variant-numeric: tabular-nums; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ===== Precision layout tokens (shared grid & rhythm) ===== */
+@layer components {
+  .sc-container { @apply max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8; }
+  .sc-section { @apply pt-14 sm:pt-20; }
+  .sc-eyebrow { @apply inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-100 text-emerald-900; }
+  .sc-h2 { @apply mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-brand-dark; }
+  .sc-lead { @apply mt-1.5 text-sm text-stone-600 max-w-2xl; }
+}
 
 :root[data-reduce-motion='true'] *,
 :root[data-reduce-motion='true'] *::before,

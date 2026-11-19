@@ -62,7 +62,7 @@ export function HeroShowcase({
   return (
     <section
       id="hero-showcase-section"
-      className="relative overflow-hidden bg-gradient-to-br from-[#F7F5F0] via-[#EFECE4] to-[#E5E0D4] border-b border-stone-200/80 min-h-[650px] lg:min-h-[710px] flex flex-col justify-between"
+      className="relative overflow-hidden bg-gradient-to-br from-[#F7F5F0] via-[#EFECE4] to-[#E5E0D4] border-b border-stone-200/80 flex flex-col"
     >
       <FloatingOrbs />
 
@@ -89,7 +89,7 @@ export function HeroShowcase({
         </svg>
       </div>
 
-      <div className="hidden lg:flex flex-col items-center gap-2.5 absolute left-5 top-1/2 -translate-y-1/2 z-20">
+      <div className="hidden xl:flex flex-col items-center gap-2.5 absolute left-6 top-1/2 -translate-y-1/2 z-20">
         {activePackages.map((p, idx) => (
           <button
             key={p.id}
@@ -103,8 +103,8 @@ export function HeroShowcase({
         ))}
       </div>
 
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-12 pt-8 sm:pt-10 pb-6 relative z-10 flex-1 flex flex-col justify-center">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
+      <div className="sc-container pt-10 lg:pt-16 pb-4 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
           <div className="lg:col-span-4 flex items-center justify-center relative">
             <div className="absolute w-72 h-72 sm:w-80 sm:h-80 rounded-full border border-amber-600/20 pointer-events-none animate-rotate-slow" />
             <div
@@ -120,10 +120,17 @@ export function HeroShowcase({
           <div className="lg:col-span-4 text-center lg:text-left flex flex-col items-center lg:items-start justify-center space-y-4">
             <div
               key={`rank-${animTriggerKey}`}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-600/30 text-amber-900 text-xs sm:text-sm font-bold tracking-wide animate-title-top"
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-2 animate-title-top"
             >
-              <Award className="w-4 h-4 text-amber-600" />
-              <span>{currentShowPkg.rankLabel || '#1 Paket Pilihan Sajian'}</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-600/30 text-amber-900 text-xs font-bold">
+                <Award className="w-3.5 h-3.5 text-amber-600" />
+                <span>{currentShowPkg.rankLabel || '#1 Paket Pilihan Sajian'}</span>
+              </span>
+              {config?.brand?.badgeText && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-brand-dark text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                  {config.brand.badgeText}
+                </span>
+              )}
             </div>
 
             <div className="overflow-hidden py-1">
@@ -189,7 +196,7 @@ export function HeroShowcase({
 
           <div className="lg:col-span-4 flex justify-center lg:justify-end">
             <div className="w-full max-w-sm bg-white/90 backdrop-blur-xl rounded-[var(--sc-radius)] border border-white shadow-[0_20px_50px_rgba(6,78,59,0.08)] p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between gap-2 border-b border-stone-200/80 pb-3">
+              <div className="grid grid-cols-3 border-b border-stone-200/80">
                 {[
                   { id: 'overview', label: 'Overview' },
                   { id: 'ingredients', label: `Menu (${currentShowPkg.items?.length || 0})` },
@@ -199,13 +206,13 @@ export function HeroShowcase({
                     key={tab.id}
                     type="button"
                     onClick={() => setRightCardTab(tab.id)}
-                    className={`text-xs sm:text-sm font-bold pb-1 transition-all relative cursor-pointer ${
+                    className={`text-xs sm:text-[13px] font-bold pb-3 transition-all relative cursor-pointer text-center truncate ${
                       rightCardTab === tab.id ? 'text-brand-dark' : 'text-stone-400 hover:text-stone-700'
                     }`}
                   >
                     {tab.label}
                     {rightCardTab === tab.id && (
-                      <span className="absolute -bottom-[13px] left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-grow-x" />
+                      <span className="absolute -bottom-px left-2 right-2 h-0.5 bg-amber-500 rounded-full animate-grow-x" />
                     )}
                   </button>
                 ))}
@@ -316,17 +323,17 @@ export function HeroShowcase({
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-12 pb-6 relative z-20 space-y-4">
-        <div className="flex items-center justify-center lg:justify-start gap-2 sm:gap-4">
+      <div className="sc-container pt-6 pb-8 relative z-20">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             type="button"
             aria-label="Paket sebelumnya"
             onClick={() => handleSelect(activeIndex - 1)}
-            className="w-10 h-10 rounded-full bg-white/90 hover:bg-brand-dark text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm flex items-center justify-center transition-all cursor-pointer"
+            className="hidden sm:flex shrink-0 w-10 h-10 rounded-full bg-white/90 hover:bg-brand-dark text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm items-center justify-center transition-all cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-end gap-2.5 sm:gap-3.5 overflow-x-auto py-3 px-2 no-scrollbar">
+          <div className="flex-1 min-w-0 flex items-stretch lg:justify-center gap-3 overflow-x-auto pt-4 pb-3 px-1 no-scrollbar snap-x snap-mandatory">
             {activePackages.map((pkg, idx) => {
               const isActive = idx === activeIndex;
               return (
@@ -334,23 +341,23 @@ export function HeroShowcase({
                   key={pkg.id}
                   type="button"
                   onClick={() => handleSelect(idx)}
-                  className={`group relative flex flex-col items-center text-center transition-all duration-300 px-3 pt-2.5 pb-3 rounded-2xl min-w-[112px] sm:min-w-[126px] cursor-pointer ${
+                  className={`group relative snap-start shrink-0 w-[132px] sm:w-[148px] flex flex-col items-center text-center transition-all duration-300 px-3 pt-3 pb-3 rounded-2xl cursor-pointer ${
                     isActive
                       ? 'bg-white shadow-xl border-2 border-amber-400 -translate-y-2'
-                      : 'bg-white/45 hover:bg-white/85 border border-transparent hover:border-stone-300'
+                      : 'bg-white/50 hover:bg-white/90 border-2 border-transparent hover:border-stone-200'
                   }`}
                 >
                   <div className={`transition-transform duration-500 ${isActive ? 'scale-110 rotate-12' : 'group-hover:scale-105'}`}>
                     <TopDownPlateSVG styleType={pkg.plateStyle} size="small" />
                   </div>
                   <span
-                    className={`mt-2 text-xs leading-tight line-clamp-2 ${
+                    className={`mt-2.5 h-8 flex items-center justify-center text-xs leading-tight ${
                       isActive ? 'font-extrabold text-brand-dark' : 'font-medium text-stone-600'
                     }`}
                   >
-                    {pkg.name}
+                    <span className="line-clamp-2">{pkg.name}</span>
                   </span>
-                  <span className={`mt-1 text-[10px] font-bold ${isActive ? 'text-amber-700' : 'text-stone-500'}`}>
+                  <span className={`mt-1 text-[11px] font-bold tabular-nums ${isActive ? 'text-amber-700' : 'text-stone-500'}`}>
                     {formatRupiah(pkg.price)}
                   </span>
                 </button>
@@ -361,7 +368,7 @@ export function HeroShowcase({
             type="button"
             aria-label="Paket berikutnya"
             onClick={() => handleSelect(activeIndex + 1)}
-            className="w-10 h-10 rounded-full bg-white/90 hover:bg-brand-dark text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm flex items-center justify-center transition-all cursor-pointer"
+            className="hidden sm:flex shrink-0 w-10 h-10 rounded-full bg-white/90 hover:bg-brand-dark text-stone-700 hover:text-amber-400 border border-stone-300 shadow-sm items-center justify-center transition-all cursor-pointer"
           >
             <ChevronRight className="w-5 h-5" />
           </button>

@@ -136,16 +136,12 @@ export function BookingCalculator({
   const minLead = config.business?.minLeadDays ?? 1;
 
   return (
-    <section id="booking-calculator-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+    <section id="booking-calculator-section" className="sc-container sc-section">
       <Reveal>
         <div className="mb-8">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full">
-            Simulasi Transparan &amp; Pemesanan
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-dark mt-2">
-            Kalkulator Estimasi Biaya &amp; Formulir Booking
-          </h2>
-          <p className="text-stone-600 text-sm sm:text-base mt-1">
+          <span className="sc-eyebrow">Simulasi Transparan &amp; Pemesanan</span>
+          <h2 className="sc-h2">Kalkulator Estimasi Biaya &amp; Formulir Booking</h2>
+          <p className="sc-lead">
             Atur porsi paket utama, tambahkan gubukan/stall, dan kunci jadwal dapur {config.brand?.name || 'Sajian Catering'}.
           </p>
         </div>

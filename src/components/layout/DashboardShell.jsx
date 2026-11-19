@@ -13,7 +13,7 @@ export function DashboardShell({
   children,
 }) {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+    <div className="sc-container py-8 pb-20">
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         <aside className="no-print w-full lg:w-64 shrink-0 lg:sticky lg:top-24 bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="bg-brand-dark text-white p-4 relative overflow-hidden">

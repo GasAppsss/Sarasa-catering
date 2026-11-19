@@ -16,7 +16,7 @@ export function InfoAndFaqSection() {
   ].filter((t) => t.visible);
 
   return (
-    <section id="info-faq-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+    <section id="info-faq-section" className="sc-container sc-section">
       <Reveal>
         <div className="bg-white rounded-[var(--sc-radius)] border border-stone-200/90 shadow-sm overflow-hidden">
           <div className="bg-brand-dark/95 text-white px-4 sm:px-6 pt-3 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-emerald-800">
@@ -43,13 +43,13 @@ export function InfoAndFaqSection() {
 
           <div className="p-6 sm:p-8 bg-[#FAF8F5]/60">
             {activeTab === 'about' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center animate-card-reveal">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start animate-card-reveal">
                 <div className="lg:col-span-5 space-y-4">
                   <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-900 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full">
                     <Award className="w-3.5 h-3.5 text-amber-600" />
                     <span>Jaminan Kualitas Sajian</span>
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-dark leading-tight">
+                  <h2 className="text-2xl sm:text-[28px] font-extrabold tracking-tight text-brand-dark leading-tight">
                     {companyProfile?.headline}
                   </h2>
                   <p className="text-sm text-stone-600 leading-relaxed">{companyProfile?.summary}</p>
