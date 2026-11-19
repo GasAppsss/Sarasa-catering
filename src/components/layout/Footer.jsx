@@ -1,5 +1,6 @@
 import React from 'react';
-import { Clock, Lock, Mail, MapPin, Phone, ShieldCheck, Utensils } from 'lucide-react';
+import { Clock, Code2, Lock, Mail, MapPin, Phone, ShieldCheck, Utensils } from 'lucide-react';
+import { ROLES } from '../../config/rbac.js';
 import { useApp } from '../../context/AppContext.jsx';
 
 export function Footer({ onOpenTeamAuth }) {
@@ -68,16 +69,26 @@ export function Footer({ onOpenTeamAuth }) {
           <div className="space-y-3 text-xs">
             <h3 className="font-bold text-white uppercase tracking-wider text-[11px]">Portal Internal Tim</h3>
             <p className="text-emerald-200/80 leading-relaxed">
-              Akses khusus untuk Tim Dapur, Administrator Bisnis, dan Pengembang sistem.
+              Akses khusus untuk Administrator Bisnis, Tim Dapur, dan Pengembang sistem.
             </p>
-            <button
-              type="button"
-              onClick={onOpenTeamAuth}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-amber-300 font-bold text-xs transition-all cursor-pointer"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Login Portal Tim &amp; Dapur</span>
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenTeamAuth?.(ROLES.ADMIN)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-amber-300 font-bold text-xs transition-all cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Login Admin &amp; Tim</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenTeamAuth?.(ROLES.DEVELOPER)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-black/20 hover:bg-white/15 border border-white/15 text-emerald-100 font-semibold text-xs transition-all cursor-pointer"
+              >
+                <Code2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Developer</span>
+              </button>
+            </div>
           </div>
         </div>
 

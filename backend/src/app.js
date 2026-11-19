@@ -6,16 +6,31 @@ import {
   stripPackageFinancials,
   stripStallFinancials,
 } from './db/mappers.js';
-import { createAuthMiddleware, signToken, verifyPin } from './security/auth.js';
+import {
+  createAuthMiddleware,
+  generateOtpCode,
+  generateRecoveryKey,
+  hashSecret,
+  signToken,
+  verifyPin,
+  verifySecret,
+} from './security/auth.js';
+import { sendPasswordResetEmail } from './security/mailer.js';
 import {
   BusinessSettingsSchema,
+  ChangePasswordSchema,
   ClientNoteSchema,
   CreateOrderSchema,
   DeveloperConfigSchema,
+  DeveloperResetPasswordSchema,
+  ForgotPasswordSchema,
   KitchenStageSchema,
   LoginSchema,
   OrderAdminPatchSchema,
   PackageUpsertSchema,
+  ResetPasswordSchema,
+  RotateRecoveryKeySchema,
+  VerifyResetCodeSchema,
 } from './security/schemas.js';
 import {
   aggregateKitchenSheet,
@@ -23,6 +38,7 @@ import {
   computeKpiStats,
   phonesMatch,
 } from './services/cateringService.js';
+import { maskEmail, normalizeRecoveryKey } from './shared/passwordPolicy.js';
 import { getRoleScopes, ROLE_META, ROLE_SCOPES, ROLES, SCOPES } from './shared/rbac.js';
 import { getDateOffsetIso } from './shared/seedDefaults.js';
 
@@ -69,44 +85,338 @@ export function createApp({ config, store }) {
   });
 
   /* ============================================================
-     AUTH ROUTES
+     AUTH & PASSWORD RECOVERY ROUTES
   ============================================================ */
+  function toPublicAccount(cred) {
+    if (!cred) return null;
+    return {
+      role: cred.role,
+      username: cred.username,
+      email: cred.email,
+      displayName: cred.display_name || ROLE_META[cred.role]?.label || cred.role,
+      updatedAt: cred.updated_at,
+    };
+  }
+
   app.post('/api/auth/login', async (req, res, next) => {
     try {
       const parsed = LoginSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: formatZodError(parsed.error) });
       }
-      const { role, pin } = parsed.data;
-      const cred = await store.getCredential(role);
-      if (!cred || !verifyPin(pin, cred.pin_hash)) {
-        return res.status(401).json({ error: 'PIN akses tidak valid untuk role tersebut.' });
+      const { identifier, password, role: requestedRole, pin, rememberMe } = parsed.data;
+      const secretInput = password ?? pin ?? '';
+
+      const cred = identifier
+        ? await store.getCredentialByIdentifier(identifier)
+        : requestedRole
+          ? await store.getCredential(requestedRole)
+          : null;
+
+      if (!cred) {
+        return res.status(401).json({ error: 'Email/username atau password tidak valid.' });
       }
-      const scopes = getRoleScopes(role);
-      const token = signToken({ sub: role, role, scopes }, config.jwtSecret, config.tokenTtlSeconds);
+
+      if (requestedRole && cred.role !== requestedRole) {
+        return res.status(403).json({
+          error: `Akun ini terdaftar sebagai ${ROLE_META[cred.role]?.shortLabel || cred.role}, bukan ${ROLE_META[requestedRole]?.shortLabel || requestedRole}. Pilih tab role yang sesuai.`,
+        });
+      }
+
+      if (cred.locked_until) {
+        const lockEndsAt = new Date(cred.locked_until).getTime();
+        if (lockEndsAt > Date.now()) {
+          const remainingSec = Math.ceil((lockEndsAt - Date.now()) / 1000);
+          return res.status(429).json({
+            error: `Akun dikunci sementara karena terlalu banyak percobaan gagal. Coba lagi dalam ${remainingSec} detik atau gunakan Lupa Password.`,
+            lockedUntil: cred.locked_until,
+            remainingSeconds: remainingSec,
+          });
+        }
+        await store.clearLoginFailures(cred.role);
+      }
+
+      if (!verifyPin(secretInput, cred.pin_hash)) {
+        const maxAttempts = config.maxLoginAttempts || 5;
+        const lockMs = (config.lockoutMinutes || 2) * 60 * 1000;
+        const failure = await store.recordLoginFailure(cred.role, maxAttempts, lockMs);
+        const remaining = Math.max(0, maxAttempts - failure.failedAttempts);
+        if (failure.lockedUntil) {
+          return res.status(429).json({
+            error: `Terlalu banyak percobaan gagal (${maxAttempts}x). Akun dikunci sementara selama ${config.lockoutMinutes || 2} menit.`,
+            lockedUntil: failure.lockedUntil,
+            remainingSeconds: Math.ceil(lockMs / 1000),
+          });
+        }
+        return res.status(401).json({
+          error: `Password tidak valid. Sisa ${remaining} percobaan sebelum akun dikunci sementara.`,
+          remainingAttempts: remaining,
+        });
+      }
+
+      await store.clearLoginFailures(cred.role);
+      const scopes = getRoleScopes(cred.role);
+      const ttl = rememberMe ? config.rememberTokenTtlSeconds : config.tokenTtlSeconds;
+      const token = signToken(
+        { sub: cred.role, role: cred.role, username: cred.username, email: cred.email, scopes },
+        config.jwtSecret,
+        ttl
+      );
       await store.addAuditLog({
-        actorRole: role,
+        actorRole: cred.role,
         action: 'AUTH_LOGIN',
-        targetId: role,
-        summary: `Login berhasil sebagai ${ROLE_META[role]?.label || role}`,
+        targetId: cred.username || cred.role,
+        summary: `Login berhasil sebagai ${cred.display_name || ROLE_META[cred.role]?.label || cred.role}`,
       });
       return res.json({
         token,
-        role,
+        role: cred.role,
+        account: toPublicAccount(cred),
         scopes,
-        expiresIn: config.tokenTtlSeconds,
+        expiresIn: ttl,
       });
     } catch (err) {
       return next(err);
     }
   });
 
-  app.get('/api/auth/me', requireAuth, (req, res) => {
-    res.json({
-      role: req.user.role,
-      scopes: getRoleScopes(req.user.role),
-      exp: req.user.exp,
-    });
+  app.get('/api/auth/me', requireAuth, async (req, res, next) => {
+    try {
+      const cred = await store.getCredential(req.user.role);
+      res.json({
+        role: req.user.role,
+        account: toPublicAccount(cred),
+        scopes: getRoleScopes(req.user.role),
+        exp: req.user.exp,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/api/auth/accounts', requireAuth, async (req, res, next) => {
+    try {
+      const selfCred = await store.getCredential(req.user.role);
+      const accounts =
+        req.user.role === ROLES.DEVELOPER
+          ? await store.listStaffAccounts()
+          : selfCred
+            ? [toPublicAccount(selfCred)]
+            : [];
+      return res.json({ account: toPublicAccount(selfCred), accounts });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.post('/api/auth/forgot-password', async (req, res, next) => {
+    try {
+      const parsed = ForgotPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: formatZodError(parsed.error) });
+      }
+      const { identifier, role: requestedRole } = parsed.data;
+      const cred = await store.getCredentialByIdentifier(identifier);
+
+      if (!cred || (requestedRole && cred.role !== requestedRole)) {
+        if (config.isProd) {
+          return res.json({
+            ok: true,
+            message: 'Jika akun terdaftar, kode OTP 6-digit telah dikirim ke email pemulihan Anda.',
+            expiresInSeconds: (config.resetOtpTtlMinutes || 10) * 60,
+          });
+        }
+        return res.status(404).json({ error: 'Akun dengan email atau username tersebut tidak ditemukan.' });
+      }
+
+      const otpCode = generateOtpCode();
+      const ttlMinutes = config.resetOtpTtlMinutes || 10;
+      const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+      await store.saveResetChallenge(cred.role, hashSecret(otpCode), expiresAt);
+
+      const delivery = await sendPasswordResetEmail({
+        config,
+        toEmail: cred.email,
+        displayName: cred.display_name || ROLE_META[cred.role]?.label || cred.role,
+        otpCode,
+        ttlMinutes,
+      });
+
+      await store.addAuditLog({
+        actorRole: cred.role,
+        action: 'AUTH_RESET_REQUESTED',
+        targetId: cred.username || cred.role,
+        summary: `Permintaan kode OTP lupa password dibuat (${delivery.provider})`,
+      });
+
+      return res.json({
+        ok: true,
+        message: delivery.delivered
+          ? `Kode OTP 6-digit telah dikirim ke ${maskEmail(cred.email)}.`
+          : `Kode OTP 6-digit telah dibuat untuk ${maskEmail(cred.email)}.`,
+        maskedEmail: maskEmail(cred.email),
+        role: cred.role,
+        expiresAt,
+        expiresInSeconds: ttlMinutes * 60,
+        deliveryMode: delivery.provider,
+        ...(delivery.previewCode ? { previewCode: delivery.previewCode } : {}),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.post('/api/auth/verify-reset-code', async (req, res, next) => {
+    try {
+      const parsed = VerifyResetCodeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: formatZodError(parsed.error) });
+      }
+      const { identifier, code } = parsed.data;
+      const cred = await store.getCredentialByIdentifier(identifier);
+      if (!cred || !cred.reset_code_hash || !cred.reset_expires_at) {
+        return res.status(400).json({ error: 'Permintaan reset tidak ditemukan atau sudah kedaluwarsa.' });
+      }
+      if (new Date(cred.reset_expires_at).getTime() < Date.now()) {
+        await store.clearResetChallenge(cred.role);
+        return res.status(400).json({ error: 'Kode OTP telah kedaluwarsa. Silakan minta kode baru.' });
+      }
+      if (Number(cred.reset_attempts || 0) >= 5) {
+        await store.clearResetChallenge(cred.role);
+        return res.status(429).json({ error: 'Terlalu banyak percobaan OTP salah. Silakan minta kode baru.' });
+      }
+      if (!verifySecret(code, cred.reset_code_hash)) {
+        const attempts = await store.incrementResetAttempts(cred.role);
+        const left = Math.max(0, 5 - attempts);
+        return res.status(400).json({
+          error: left > 0 ? `Kode OTP tidak sesuai. Sisa ${left} percobaan.` : 'Batas percobaan OTP habis. Minta kode baru.',
+        });
+      }
+      return res.json({
+        ok: true,
+        role: cred.role,
+        maskedEmail: maskEmail(cred.email),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.post('/api/auth/reset-password', async (req, res, next) => {
+    try {
+      const parsed = ResetPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: formatZodError(parsed.error) });
+      }
+      const { method, identifier, code, recoveryKey, newPassword } = parsed.data;
+      const cred = await store.getCredentialByIdentifier(identifier);
+      if (!cred) {
+        return res.status(400).json({ error: 'Verifikasi gagal. Pastikan email/username dan kredensial pemulihan benar.' });
+      }
+
+      if (method === 'otp') {
+        if (!cred.reset_code_hash || !cred.reset_expires_at) {
+          return res.status(400).json({ error: 'Kode OTP belum diminta atau sudah kedaluwarsa.' });
+        }
+        if (new Date(cred.reset_expires_at).getTime() < Date.now()) {
+          await store.clearResetChallenge(cred.role);
+          return res.status(400).json({ error: 'Kode OTP telah kedaluwarsa. Silakan minta kode baru.' });
+        }
+        if (Number(cred.reset_attempts || 0) >= 5) {
+          await store.clearResetChallenge(cred.role);
+          return res.status(429).json({ error: 'Terlalu banyak percobaan OTP salah. Silakan minta kode baru.' });
+        }
+        if (!verifySecret(code, cred.reset_code_hash)) {
+          await store.incrementResetAttempts(cred.role);
+          return res.status(400).json({ error: 'Kode OTP tidak valid.' });
+        }
+      } else {
+        const normalizedKey = normalizeRecoveryKey(recoveryKey);
+        if (!cred.recovery_key_hash || !verifySecret(normalizedKey, cred.recovery_key_hash)) {
+          return res.status(401).json({ error: 'Master Recovery Key tidak cocok dengan akun tersebut.' });
+        }
+      }
+
+      await store.setCredential(cred.role, newPassword);
+      await store.addAuditLog({
+        actorRole: cred.role,
+        action: 'AUTH_PASSWORD_RESET',
+        targetId: cred.username || cred.role,
+        summary: `Password akun ${cred.role} berhasil direset melalui metode ${method === 'otp' ? 'Email OTP' : 'Master Recovery Key'}`,
+      });
+
+      return res.json({
+        ok: true,
+        role: cred.role,
+        email: cred.email,
+        message: 'Password baru berhasil disimpan. Silakan login menggunakan password baru Anda.',
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.post('/api/auth/change-password', requireAuth, async (req, res, next) => {
+    try {
+      const parsed = ChangePasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: formatZodError(parsed.error) });
+      }
+      const { currentPassword, newPassword } = parsed.data;
+      const cred = await store.getCredential(req.user.role);
+      if (!cred || !verifyPin(currentPassword, cred.pin_hash)) {
+        return res.status(401).json({ error: 'Password saat ini tidak sesuai.' });
+      }
+
+      await store.setCredential(req.user.role, newPassword);
+      await store.addAuditLog({
+        actorRole: req.user.role,
+        action: 'AUTH_PASSWORD_CHANGED',
+        targetId: cred.username || req.user.role,
+        summary: `Akun ${req.user.role} memperbarui password keamanan secara mandiri`,
+      });
+
+      return res.json({ ok: true, message: 'Password berhasil diperbarui.' });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.post('/api/auth/recovery-key/rotate', requireAuth, async (req, res, next) => {
+    try {
+      const parsed = RotateRecoveryKeySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: formatZodError(parsed.error) });
+      }
+      const { currentPassword, targetRole } = parsed.data;
+      const actorCred = await store.getCredential(req.user.role);
+      if (!actorCred || !verifyPin(currentPassword, actorCred.pin_hash)) {
+        return res.status(401).json({ error: 'Verifikasi password Anda gagal.' });
+      }
+
+      const roleToRotate = targetRole || req.user.role;
+      if (roleToRotate !== req.user.role && req.user.role !== ROLES.DEVELOPER) {
+        return res.status(403).json({ error: 'Hanya Pengembang yang dapat merotasi Recovery Key akun lain.' });
+      }
+
+      const newRecoveryKey = generateRecoveryKey(roleToRotate);
+      await store.updateRecoveryKey(roleToRotate, newRecoveryKey);
+      await store.addAuditLog({
+        actorRole: req.user.role,
+        action: 'AUTH_RECOVERY_KEY_ROTATED',
+        targetId: roleToRotate,
+        summary: `Master Recovery Key untuk akun ${roleToRotate} diperbarui`,
+      });
+
+      return res.json({
+        ok: true,
+        role: roleToRotate,
+        recoveryKey: newRecoveryKey,
+        message: 'Master Recovery Key baru berhasil dibuat. Simpan di tempat yang aman.',
+      });
+    } catch (err) {
+      return next(err);
+    }
   });
 
   /* ============================================================
@@ -488,12 +798,13 @@ export function createApp({ config, store }) {
   ============================================================ */
   app.get('/api/developer/state', requireAuth, requireScope(SCOPES.DEV_SYSTEM_JSON_IO), async (_req, res, next) => {
     try {
-      const [configData, packages, stalls, orders, auditLogs] = await Promise.all([
+      const [configData, packages, stalls, orders, auditLogs, staffAccounts] = await Promise.all([
         store.getAppConfig(),
         store.listPackages(),
         store.listStalls(),
         store.listOrders(),
         store.listAuditLogs(50),
+        store.listStaffAccounts(),
       ]);
       return res.json({
         driver: store.driver,
@@ -504,11 +815,40 @@ export function createApp({ config, store }) {
         stalls,
         orders,
         auditLogs,
+        staffAccounts,
       });
     } catch (err) {
       return next(err);
     }
   });
+
+  app.post(
+    '/api/developer/accounts/:role/reset-password',
+    requireAuth,
+    requireScope(SCOPES.DEV_RBAC_PIN_EDIT),
+    async (req, res, next) => {
+      try {
+        const targetRole = req.params.role;
+        if (![ROLES.KITCHEN, ROLES.ADMIN, ROLES.DEVELOPER].includes(targetRole)) {
+          return res.status(400).json({ error: 'Role akun tidak valid.' });
+        }
+        const parsed = DeveloperResetPasswordSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: formatZodError(parsed.error) });
+        }
+        await store.setCredential(targetRole, parsed.data.newPassword);
+        await store.addAuditLog({
+          actorRole: req.user.role,
+          action: 'DEV_RESET_STAFF_PASSWORD',
+          targetId: targetRole,
+          summary: `Pengembang mereset password akun ${targetRole}`,
+        });
+        return res.json({ ok: true, role: targetRole, message: `Password akun ${targetRole} berhasil diperbarui.` });
+      } catch (err) {
+        return next(err);
+      }
+    }
+  );
 
   app.put('/api/developer/config', requireAuth, requireScope(SCOPES.DEV_THEME_TOKENS_EDIT), async (req, res, next) => {
     try {

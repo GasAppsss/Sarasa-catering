@@ -82,19 +82,35 @@ describe('Sajian Catering Backend API & RBAC', () => {
     expect(goodTrack.body.order.packageHpp).toBeUndefined();
   });
 
-  it('rejects invalid PIN login and enforces strict server-side RBAC scopes across kitchen/admin/developer', async () => {
-    const badLogin = await request(app).post('/api/auth/login').send({ role: 'admin', pin: '0000' });
+  it('rejects invalid credentials/role mismatch and enforces strict server-side RBAC scopes across kitchen/admin/developer', async () => {
+    const badLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'admin@sajiancatering.id', password: 'WrongPassword1', role: 'admin' });
     expect(badLogin.status).toBe(401);
 
-    const kitchenLogin = await request(app).post('/api/auth/login').send({ role: 'kitchen', pin: '1122' });
+    // Role mismatch rejected
+    const wrongRole = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'admin@sajiancatering.id', password: 'Admin#2026', role: 'developer' });
+    expect(wrongRole.status).toBe(403);
+
+    const kitchenLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'dapur', password: 'Dapur#2026', role: 'kitchen' });
     expect(kitchenLogin.status).toBe(200);
+    expect(kitchenLogin.body.account.email).toBe('dapur@sajiancatering.id');
     kitchenToken = kitchenLogin.body.token;
 
-    const adminLogin = await request(app).post('/api/auth/login').send({ role: 'admin', pin: '2233' });
+    const adminLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'admin@sajiancatering.id', password: 'Admin#2026', role: 'admin', rememberMe: true });
     expect(adminLogin.status).toBe(200);
+    expect(adminLogin.body.expiresIn).toBeGreaterThan(86400);
     adminToken = adminLogin.body.token;
 
-    const devLogin = await request(app).post('/api/auth/login').send({ role: 'developer', pin: '9900' });
+    const devLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'dev@sajiancatering.id', password: 'Dev#Sajian99', role: 'developer' });
     expect(devLogin.status).toBe(200);
     devToken = devLogin.body.token;
 
@@ -179,15 +195,131 @@ describe('Sajian Catering Backend API & RBAC', () => {
           enableWhatsAppCheckout: true,
           enableDemoQuickSwitch: true,
         },
-        rolePins: { kitchen: '5566' },
+        rolePins: { kitchen: 'Dapur#5566' },
       });
     expect(devConfigRes.status).toBe(200);
     expect(devConfigRes.body.config.featureFlags.enableDemoQuickSwitch).toBe(true);
 
-    // Old kitchen PIN fails, new PIN works
-    const oldPin = await request(app).post('/api/auth/login').send({ role: 'kitchen', pin: '1122' });
-    expect(oldPin.status).toBe(401);
-    const newPin = await request(app).post('/api/auth/login').send({ role: 'kitchen', pin: '5566' });
-    expect(newPin.status).toBe(200);
+    // Old kitchen password fails, new password works
+    const oldPw = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'dapur@sajiancatering.id', password: 'Dapur#2026' });
+    expect(oldPw.status).toBe(401);
+    const newPw = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'dapur@sajiancatering.id', password: 'Dapur#5566' });
+    expect(newPw.status).toBe(200);
+  });
+
+  it('supports Forgot Password via 6-digit OTP and Master Recovery Key, plus Change Password, Recovery Key rotation, and brute-force lockout', async () => {
+    // 1) Forgot password via 6-digit OTP for Admin
+    const reqReset = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ identifier: 'admin@sajiancatering.id' });
+    expect(reqReset.status).toBe(200);
+    expect(reqReset.body.previewCode).toMatch(/^\d{6}$/);
+    const otpCode = reqReset.body.previewCode;
+
+    // Wrong OTP rejected
+    const badOtp = await request(app)
+      .post('/api/auth/verify-reset-code')
+      .send({ identifier: 'admin@sajiancatering.id', code: '000000' });
+    expect(badOtp.status).toBe(400);
+
+    // Valid OTP verified
+    const goodOtp = await request(app)
+      .post('/api/auth/verify-reset-code')
+      .send({ identifier: 'admin@sajiancatering.id', code: otpCode });
+    expect(goodOtp.status).toBe(200);
+
+    // Complete password reset with OTP
+    const resetRes = await request(app)
+      .post('/api/auth/reset-password')
+      .send({
+        method: 'otp',
+        identifier: 'admin@sajiancatering.id',
+        code: otpCode,
+        newPassword: 'AdminBaru#2027',
+        confirmPassword: 'AdminBaru#2027',
+      });
+    expect(resetRes.status).toBe(200);
+
+    // Reusing OTP must fail
+    const reuseOtp = await request(app)
+      .post('/api/auth/reset-password')
+      .send({
+        method: 'otp',
+        identifier: 'admin@sajiancatering.id',
+        code: otpCode,
+        newPassword: 'AdminBaru#2028',
+        confirmPassword: 'AdminBaru#2028',
+      });
+    expect(reuseOtp.status).toBe(400);
+
+    // Login with new password succeeds
+    const relogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'admin', password: 'AdminBaru#2027', role: 'admin' });
+    expect(relogin.status).toBe(200);
+    const freshAdminToken = relogin.body.token;
+
+    // 2) Admin changes own password & rotates own Recovery Key
+    const changePw = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${freshAdminToken}`)
+      .send({
+        currentPassword: 'AdminBaru#2027',
+        newPassword: 'AdminFinal#2029',
+        confirmPassword: 'AdminFinal#2029',
+      });
+    expect(changePw.status).toBe(200);
+
+    const rotateRes = await request(app)
+      .post('/api/auth/recovery-key/rotate')
+      .set('Authorization', `Bearer ${freshAdminToken}`)
+      .send({ currentPassword: 'AdminFinal#2029' });
+    expect(rotateRes.status).toBe(200);
+    expect(rotateRes.body.recoveryKey).toMatch(/^SJC-ADM-/);
+
+    // 3) Forgot password via Master Recovery Key for Developer
+    const badKeyReset = await request(app)
+      .post('/api/auth/reset-password')
+      .send({
+        method: 'recovery_key',
+        identifier: 'dev@sajiancatering.id',
+        recoveryKey: 'SJC-DEV-XXXX-YYYY',
+        newPassword: 'DevReset#2027',
+        confirmPassword: 'DevReset#2027',
+      });
+    expect(badKeyReset.status).toBe(401);
+
+    const devKeyReset = await request(app)
+      .post('/api/auth/reset-password')
+      .send({
+        method: 'recovery_key',
+        identifier: 'developer',
+        recoveryKey: 'sjc-dev-9q4w-8r6t',
+        newPassword: 'DevReset#2027',
+        confirmPassword: 'DevReset#2027',
+      });
+    expect(devKeyReset.status).toBe(200);
+
+    // 4) Brute-force lockout after 5 consecutive wrong passwords on kitchen
+    for (let i = 0; i < 4; i += 1) {
+      const failRes = await request(app)
+        .post('/api/auth/login')
+        .send({ identifier: 'dapur', password: 'WrongPassword9' });
+      expect(failRes.status).toBe(401);
+    }
+    const fifthFail = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'dapur', password: 'WrongPassword9' });
+    expect(fifthFail.status).toBe(429);
+
+    // Even valid password blocked while locked
+    const blockedGood = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'dapur', password: 'Dapur#5566' });
+    expect(blockedGood.status).toBe(429);
   });
 });

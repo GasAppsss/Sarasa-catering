@@ -5,8 +5,10 @@ import {
   LayoutDashboard,
   Package,
   Settings,
+  ShieldCheck,
 } from 'lucide-react';
 import { DashboardShell } from '../../components/layout/DashboardShell.jsx';
+import { AccountSecurityPanel } from '../../components/shared/AccountSecurityPanel.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { KitchenDashboardView } from '../kitchen/KitchenDashboardView.jsx';
 import { AdminCatalogTab } from './AdminCatalogTab.jsx';
@@ -24,6 +26,7 @@ export function AdminDashboardView({ onSwitchToShowcase }) {
     { id: 'catalog', label: 'Katalog & Margin', icon: Package },
     { id: 'kitchen', label: 'Monitor Dapur', icon: ChefHat },
     { id: 'settings', label: 'Pengaturan Bisnis', icon: Settings },
+    { id: 'security', label: 'Keamanan & Akun', icon: ShieldCheck },
   ];
 
   return (
@@ -42,6 +45,7 @@ export function AdminDashboardView({ onSwitchToShowcase }) {
         {activeTab === 'catalog' && <AdminCatalogTab />}
         {activeTab === 'kitchen' && <KitchenDashboardView embedded />}
         {activeTab === 'settings' && <AdminSettingsTab />}
+        {activeTab === 'security' && <AccountSecurityPanel />}
       </div>
     </DashboardShell>
   );

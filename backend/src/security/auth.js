@@ -21,7 +21,7 @@ export function hashPin(pin) {
 }
 
 /**
- * Verify a PIN against a stored salt:hash string in constant time.
+ * Verify a PIN or password against a stored salt:hash string in constant time.
  */
 export function verifyPin(pin, storedHash) {
   if (!storedHash || !storedHash.includes(':')) return false;
@@ -31,6 +31,29 @@ export function verifyPin(pin, storedHash) {
   const expectedBuf = Buffer.from(expectedHex, 'hex');
   if (actualBuf.length !== expectedBuf.length) return false;
   return crypto.timingSafeEqual(actualBuf, expectedBuf);
+}
+
+export const hashSecret = hashPin;
+export const verifySecret = verifyPin;
+
+/**
+ * Cryptographically strong 6-digit OTP generator.
+ */
+export function generateOtpCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/**
+ * Generate a human-readable emergency Master Recovery Key (e.g. SJC-ADM-7K9P-4X2M).
+ */
+export function generateRecoveryKey(role = 'admin') {
+  const tagMap = { admin: 'ADM', developer: 'DEV', kitchen: 'KTC' };
+  const tag = tagMap[role] || 'STF';
+  const bytes = crypto.randomBytes(8);
+  const chars = Array.from(bytes, (b) => RECOVERY_ALPHABET[b % RECOVERY_ALPHABET.length]);
+  return `SJC-${tag}-${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}`;
 }
 
 /**

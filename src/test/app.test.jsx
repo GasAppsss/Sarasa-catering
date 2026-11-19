@@ -47,37 +47,46 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
     expect(screen.queryByText(/HPP/i)).not.toBeInTheDocument();
   });
 
-  it('allows Admin to access sidebar Business Settings while keeping Developer Console hidden', async () => {
+  it('allows Admin to login via full-screen portal and access Business Settings + Account Security while keeping Developer Console hidden', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Portal Tim & Dapur/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Admin/i }));
-    fireEvent.change(screen.getByLabelText(/Masukkan PIN Akses/i), { target: { value: '2233' } });
-    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    expect(screen.getByText(/Login Administrator Bisnis/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'admin@sajiancatering.id' } });
+    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'Admin#2026' } });
+    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard Admin/i }));
+
     expect(await screen.findByRole('heading', { name: /Pusat Kendali/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Pengaturan Bisnis/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Keamanan & Akun/i })).toBeInTheDocument();
     expect(screen.queryByText('Pengaturan Sistem & Kustomisasi Pengembang')).not.toBeInTheDocument();
   });
 
-  it('gates Staff & Developer dashboards behind PIN authentication and enforces role scope', async () => {
+  it('gates Kitchen dashboard behind email/password authentication and enforces role scope', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Login Portal Tim & Dapur/i }));
-    fireEvent.change(screen.getByLabelText(/Masukkan PIN Akses/i), { target: { value: '0000' } });
-    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard/i }));
-    expect(await screen.findByText(/PIN akses tidak valid/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Login Admin & Tim/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Dapur/i }));
 
-    fireEvent.change(screen.getByLabelText(/Masukkan PIN Akses/i), { target: { value: '1122' } });
-    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard/i }));
+    fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'dapur' } });
+    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'SalahPassword1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard Dapur/i }));
+    expect(await screen.findByText(/Password tidak valid/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'Dapur#2026' } });
+    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard Dapur/i }));
     expect(await screen.findByRole('heading', { name: 'Kitchen Command Center' })).toBeInTheDocument();
     expect(screen.queryByText('Pengaturan Sistem & Kustomisasi Pengembang')).not.toBeInTheDocument();
   });
 
-  it('unlocks Developer-Only sidebar console via Ctrl+Shift+D and Developer PIN', async () => {
+  it('unlocks Developer-Only sidebar console via Ctrl+Shift+D and Developer credentials', async () => {
     render(<App />);
     fireEvent.keyDown(window, { key: 'D', ctrlKey: true, shiftKey: true });
-    expect(screen.getByText('Portal Akses Tim & Pengembang')).toBeInTheDocument();
+    expect(screen.getByText(/Login Pengembang Sistem/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Masukkan PIN Akses/i), { target: { value: '9900' } });
-    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard/i }));
+    fireEvent.change(screen.getByLabelText(/Email atau Username/i), { target: { value: 'dev@sajiancatering.id' } });
+    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'Dev#Sajian99' } });
+    fireEvent.click(screen.getByRole('button', { name: /Masuk Dashboard Developer/i }));
+
     expect(await screen.findByRole('heading', { name: 'Pengaturan Sistem & Kustomisasi Pengembang' })).toBeInTheDocument();
     expect(screen.getByText('Theme & Design Token Customizer')).toBeInTheDocument();
   });

@@ -3,11 +3,12 @@ import path from 'node:path';
 import { hashPin } from '../security/auth.js';
 
 const { DatabaseSync } = process.getBuiltinModule('node:sqlite');
+import { normalizeIdentifier, normalizeRecoveryKey } from '../shared/passwordPolicy.js';
 import { ROLE_META } from '../shared/rbac.js';
 import {
   buildDefaultAppConfig,
   buildInitialOrders,
-  DEFAULT_ROLE_PINS,
+  DEFAULT_STAFF_ACCOUNTS,
   INITIAL_PACKAGES,
   INITIAL_STALLS,
 } from '../shared/seedDefaults.js';
@@ -16,8 +17,16 @@ import { mapOrderRow, mapPackageRow, mapStallRow, parseJsonSafe } from './mapper
 const SQLITE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS staff_credentials (
   role TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
   pin_hash TEXT NOT NULL,
+  recovery_key_hash TEXT NOT NULL,
+  reset_code_hash TEXT,
+  reset_expires_at TEXT,
+  reset_attempts INTEGER NOT NULL DEFAULT 0,
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,
   updated_at TEXT NOT NULL
 );
 
@@ -115,6 +124,23 @@ export function createSqliteStore(sqlitePath) {
       db.exec('PRAGMA journal_mode = WAL;');
     }
     db.exec(SQLITE_SCHEMA);
+    // Safe migration for pre-existing local SQLite databases
+    const cols = new Set(db.prepare('PRAGMA table_info(staff_credentials)').all().map((c) => c.name));
+    const additions = [
+      ['username', 'TEXT'],
+      ['email', 'TEXT'],
+      ['recovery_key_hash', 'TEXT'],
+      ['reset_code_hash', 'TEXT'],
+      ['reset_expires_at', 'TEXT'],
+      ['reset_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+      ['failed_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+      ['locked_until', 'TEXT'],
+    ];
+    for (const [col, def] of additions) {
+      if (!cols.has(col)) {
+        db.exec(`ALTER TABLE staff_credentials ADD COLUMN ${col} ${def};`);
+      }
+    }
     return db;
   }
 
@@ -125,10 +151,33 @@ export function createSqliteStore(sqlitePath) {
     const credCount = conn.prepare('SELECT COUNT(*) AS c FROM staff_credentials').get().c;
     if (!preserveCredentials || credCount === 0) {
       const insertCred = conn.prepare(
-        'INSERT OR REPLACE INTO staff_credentials (role, display_name, pin_hash, updated_at) VALUES (?, ?, ?, ?)'
+        `INSERT OR REPLACE INTO staff_credentials (
+          role, username, email, display_name, pin_hash, recovery_key_hash,
+          reset_code_hash, reset_expires_at, reset_attempts, failed_attempts, locked_until, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 0, 0, NULL, ?)`
       );
-      for (const [role, pin] of Object.entries(DEFAULT_ROLE_PINS)) {
-        insertCred.run(role, ROLE_META[role]?.label || role, hashPin(pin), nowIso);
+      for (const acc of Object.values(DEFAULT_STAFF_ACCOUNTS)) {
+        insertCred.run(
+          acc.role,
+          acc.username,
+          acc.email,
+          acc.displayName || ROLE_META[acc.role]?.label || acc.role,
+          hashPin(acc.password),
+          hashPin(normalizeRecoveryKey(acc.recoveryKey)),
+          nowIso
+        );
+      }
+    } else {
+      // Backfill username/email/recovery_key_hash on migrated rows if missing
+      const backfill = conn.prepare(
+        `UPDATE staff_credentials
+         SET username = COALESCE(username, ?),
+             email = COALESCE(email, ?),
+             recovery_key_hash = COALESCE(recovery_key_hash, ?)
+         WHERE role = ?`
+      );
+      for (const acc of Object.values(DEFAULT_STAFF_ACCOUNTS)) {
+        backfill.run(acc.username, acc.email, hashPin(normalizeRecoveryKey(acc.recoveryKey)), acc.role);
       }
     }
 
@@ -273,11 +322,96 @@ export function createSqliteStore(sqlitePath) {
     async getCredential(role) {
       return ensureOpen().prepare('SELECT * FROM staff_credentials WHERE role = ?').get(role) || null;
     },
-    async setCredential(role, pin) {
+    async getCredentialByIdentifier(identifier) {
+      const key = normalizeIdentifier(identifier);
+      if (!key) return null;
+      return (
+        ensureOpen()
+          .prepare('SELECT * FROM staff_credentials WHERE LOWER(email) = ? OR LOWER(username) = ?')
+          .get(key, key) || null
+      );
+    },
+    async listStaffAccounts() {
+      return ensureOpen()
+        .prepare(
+          `SELECT role, username, email, display_name AS displayName, failed_attempts AS failedAttempts,
+                  locked_until AS lockedUntil, updated_at AS updatedAt
+           FROM staff_credentials ORDER BY rowid ASC`
+        )
+        .all();
+    },
+    async setCredential(role, newPassword) {
+      const nowIso = new Date().toISOString();
+      const existing = ensureOpen().prepare('SELECT * FROM staff_credentials WHERE role = ?').get(role);
+      if (existing) {
+        ensureOpen()
+          .prepare(
+            `UPDATE staff_credentials
+             SET pin_hash = ?, reset_code_hash = NULL, reset_expires_at = NULL,
+                 reset_attempts = 0, failed_attempts = 0, locked_until = NULL, updated_at = ?
+             WHERE role = ?`
+          )
+          .run(hashPin(newPassword), nowIso, role);
+        return;
+      }
+      const fallback = DEFAULT_STAFF_ACCOUNTS[role];
+      ensureOpen()
+        .prepare(
+          `INSERT INTO staff_credentials (role, username, email, display_name, pin_hash, recovery_key_hash, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          role,
+          fallback?.username || role,
+          fallback?.email || `${role}@sajiancatering.id`,
+          fallback?.displayName || ROLE_META[role]?.label || role,
+          hashPin(newPassword),
+          hashPin(normalizeRecoveryKey(fallback?.recoveryKey || `SJC-${role.toUpperCase()}-0000-0000`)),
+          nowIso
+        );
+    },
+    async updateRecoveryKey(role, newRecoveryKey) {
       const nowIso = new Date().toISOString();
       ensureOpen()
-        .prepare('INSERT OR REPLACE INTO staff_credentials (role, display_name, pin_hash, updated_at) VALUES (?, ?, ?, ?)')
-        .run(role, ROLE_META[role]?.label || role, hashPin(pin), nowIso);
+        .prepare('UPDATE staff_credentials SET recovery_key_hash = ?, updated_at = ? WHERE role = ?')
+        .run(hashPin(normalizeRecoveryKey(newRecoveryKey)), nowIso, role);
+    },
+    async saveResetChallenge(role, codeHash, expiresAtIso) {
+      ensureOpen()
+        .prepare(
+          `UPDATE staff_credentials
+           SET reset_code_hash = ?, reset_expires_at = ?, reset_attempts = 0
+           WHERE role = ?`
+        )
+        .run(codeHash, expiresAtIso, role);
+    },
+    async incrementResetAttempts(role) {
+      const conn = ensureOpen();
+      conn.prepare('UPDATE staff_credentials SET reset_attempts = reset_attempts + 1 WHERE role = ?').run(role);
+      const row = conn.prepare('SELECT reset_attempts AS attempts FROM staff_credentials WHERE role = ?').get(role);
+      return Number(row?.attempts || 0);
+    },
+    async clearResetChallenge(role) {
+      ensureOpen()
+        .prepare(
+          'UPDATE staff_credentials SET reset_code_hash = NULL, reset_expires_at = NULL, reset_attempts = 0 WHERE role = ?'
+        )
+        .run(role);
+    },
+    async recordLoginFailure(role, maxAttempts = 5, lockMs = 120000) {
+      const conn = ensureOpen();
+      const row = conn.prepare('SELECT failed_attempts FROM staff_credentials WHERE role = ?').get(role);
+      const nextAttempts = Number(row?.failed_attempts || 0) + 1;
+      const lockedUntil = nextAttempts >= maxAttempts ? new Date(Date.now() + lockMs).toISOString() : null;
+      conn
+        .prepare('UPDATE staff_credentials SET failed_attempts = ?, locked_until = ? WHERE role = ?')
+        .run(nextAttempts, lockedUntil, role);
+      return { failedAttempts: nextAttempts, lockedUntil };
+    },
+    async clearLoginFailures(role) {
+      ensureOpen()
+        .prepare('UPDATE staff_credentials SET failed_attempts = 0, locked_until = NULL WHERE role = ?')
+        .run(role);
     },
     async listPackages() {
       return ensureOpen().prepare('SELECT * FROM packages ORDER BY rowid ASC').all().map(mapPackageRow);

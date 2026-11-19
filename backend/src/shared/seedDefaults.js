@@ -1,7 +1,34 @@
 export const DEFAULT_ROLE_PINS = {
-  kitchen: '1122',
-  admin: '2233',
-  developer: '9900',
+  kitchen: 'Dapur#2026',
+  admin: 'Admin#2026',
+  developer: 'Dev#Sajian99',
+};
+
+export const DEFAULT_STAFF_ACCOUNTS = {
+  kitchen: {
+    role: 'kitchen',
+    username: 'dapur',
+    email: 'dapur@sajiancatering.id',
+    displayName: 'Admin Dapur & Produksi',
+    password: DEFAULT_ROLE_PINS.kitchen,
+    recoveryKey: 'SJC-KTC-5N3B-2V8L',
+  },
+  admin: {
+    role: 'admin',
+    username: 'admin',
+    email: 'admin@sajiancatering.id',
+    displayName: 'Administrator Bisnis',
+    password: DEFAULT_ROLE_PINS.admin,
+    recoveryKey: 'SJC-ADM-7K9P-4X2M',
+  },
+  developer: {
+    role: 'developer',
+    username: 'developer',
+    email: 'dev@sajiancatering.id',
+    displayName: 'Pengembang Sistem',
+    password: DEFAULT_ROLE_PINS.developer,
+    recoveryKey: 'SJC-DEV-9Q4W-8R6T',
+  },
 };
 
 export function getDateOffsetIso(daysOffset = 0) {

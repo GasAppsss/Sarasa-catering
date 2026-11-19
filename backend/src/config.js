@@ -35,6 +35,12 @@ export function loadConfig(env = process.env) {
     databaseUrl,
     jwtSecret,
     tokenTtlSeconds: Number(env.TOKEN_TTL_SECONDS) || 60 * 60 * 12,
+    rememberTokenTtlSeconds: Number(env.REMEMBER_TOKEN_TTL_SECONDS) || 60 * 60 * 24 * 7,
+    maxLoginAttempts: Number(env.MAX_LOGIN_ATTEMPTS) || 5,
+    lockoutMinutes: Number(env.LOCKOUT_MINUTES) || 2,
+    resetOtpTtlMinutes: Number(env.RESET_OTP_TTL_MINUTES) || 10,
+    resendApiKey: env.RESEND_API_KEY?.trim() || '',
+    mailFrom: env.MAIL_FROM?.trim() || '',
     corsOrigins,
   };
 }

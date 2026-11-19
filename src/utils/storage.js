@@ -4,6 +4,7 @@ export const STORAGE_KEYS = Object.freeze({
   STALLS: 'sajian_v3_stalls',
   ORDERS: 'sajian_v3_orders',
   PINS: 'sajian_v3_role_pins',
+  ACCOUNTS: 'sajian_v3_staff_accounts',
   AUDIT: 'sajian_v3_audit_logs',
   API_URL: 'sajian_v3_api_url',
   TOKEN: 'sajian_v3_auth_token',

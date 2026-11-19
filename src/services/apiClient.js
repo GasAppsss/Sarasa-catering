@@ -37,8 +37,23 @@ export function createApiClient(getBaseUrl, getToken) {
   return {
     checkHealth: (overrideUrl) =>
       requestJson(normalizeBaseUrl(overrideUrl ?? getBaseUrl()), '/api/health'),
-    login: (role, pin) => call('/api/auth/login', { method: 'POST', body: { role, pin }, token: '' }),
+    login: (payload) => call('/api/auth/login', { method: 'POST', body: payload, token: '' }),
     getMe: () => call('/api/auth/me'),
+    getAuthAccounts: () => call('/api/auth/accounts'),
+    requestPasswordReset: (payload) =>
+      call('/api/auth/forgot-password', { method: 'POST', body: payload, token: '' }),
+    verifyResetCode: (payload) =>
+      call('/api/auth/verify-reset-code', { method: 'POST', body: payload, token: '' }),
+    resetPassword: (payload) =>
+      call('/api/auth/reset-password', { method: 'POST', body: payload, token: '' }),
+    changePassword: (payload) => call('/api/auth/change-password', { method: 'POST', body: payload }),
+    rotateRecoveryKey: (payload) =>
+      call('/api/auth/recovery-key/rotate', { method: 'POST', body: payload }),
+    developerResetPassword: (targetRole, newPassword) =>
+      call(`/api/developer/accounts/${encodeURIComponent(targetRole)}/reset-password`, {
+        method: 'POST',
+        body: { newPassword },
+      }),
     getBootstrap: () => call('/api/public/bootstrap', { token: '' }),
     likePackage: (pkgId) => call(`/api/packages/${encodeURIComponent(pkgId)}/like`, { method: 'POST', token: '' }),
     createOrder: (payload) => call('/api/orders', { method: 'POST', body: payload, token: '' }),

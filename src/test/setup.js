@@ -13,6 +13,6 @@ if (typeof window !== 'undefined' && !window.IntersectionObserver) {
   };
 }
 
-if (typeof window !== 'undefined' && !window.scrollTo) {
+if (typeof window !== 'undefined') {
   window.scrollTo = () => {};
 }

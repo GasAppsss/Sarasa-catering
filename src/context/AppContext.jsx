@@ -1,10 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  getPasswordPolicyError,
+  maskEmail,
+  normalizeIdentifier,
+  normalizeRecoveryKey,
+} from '../../backend/src/shared/passwordPolicy.js';
+import {
   buildDefaultAppConfig,
   DEFAULT_ROLE_PINS,
+  DEFAULT_STAFF_ACCOUNTS,
   THEME_PRESETS,
 } from '../config/defaults.js';
-import { getRoleScopes, hasScope, ROLES, SCOPES } from '../config/rbac.js';
+import { getRoleScopes, hasScope, ROLE_META, ROLES, SCOPES } from '../config/rbac.js';
 import {
   buildInitialOrders,
   INITIAL_PACKAGES,
@@ -43,6 +50,74 @@ function applyThemeToDocument(themeTokens) {
   root.setAttribute('data-reduce-motion', themeTokens.reduceMotion ? 'true' : 'false');
 }
 
+const LOCAL_MAX_LOGIN_ATTEMPTS = 5;
+const LOCAL_LOCKOUT_MS = 2 * 60 * 1000;
+const LOCAL_OTP_TTL_MS = 10 * 60 * 1000;
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function buildInitialStaffAccounts() {
+  const nowIso = new Date().toISOString();
+  return Object.fromEntries(
+    Object.entries(DEFAULT_STAFF_ACCOUNTS).map(([role, acc]) => [
+      role,
+      {
+        ...acc,
+        failedAttempts: 0,
+        lockedUntil: null,
+        resetChallenge: null,
+        updatedAt: nowIso,
+      },
+    ])
+  );
+}
+
+function hydrateStaffAccounts() {
+  const base = buildInitialStaffAccounts();
+  const saved = readStorageJson(STORAGE_KEYS.ACCOUNTS, null);
+  if (!saved || typeof saved !== 'object') return base;
+  const merged = {};
+  for (const [role, defAcc] of Object.entries(base)) {
+    const existing = saved[role];
+    merged[role] = existing && typeof existing === 'object' ? { ...defAcc, ...existing, role } : defAcc;
+  }
+  return merged;
+}
+
+function generateLocalOtpCode() {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return String(100000 + (arr[0] % 900000));
+  }
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function generateLocalRecoveryKey(role = 'admin') {
+  const tagMap = { admin: 'ADM', developer: 'DEV', kitchen: 'KTC' };
+  const tag = tagMap[role] || 'STF';
+  const bytes = new Uint8Array(8);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  const chars = Array.from(bytes, (b) => RECOVERY_ALPHABET[b % RECOVERY_ALPHABET.length]);
+  return `SJC-${tag}-${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}`;
+}
+
+function toSafeAccountMeta(acc) {
+  if (!acc) return null;
+  return {
+    role: acc.role,
+    username: acc.username,
+    email: acc.email,
+    displayName: acc.displayName || ROLE_META[acc.role]?.label || acc.role,
+    failedAttempts: Number(acc.failedAttempts || 0),
+    lockedUntil: acc.lockedUntil || null,
+    updatedAt: acc.updatedAt || null,
+  };
+}
+
 export function AppProvider({ children }) {
   const defaultApiUrl = normalizeBaseUrl(
     readStorageText(STORAGE_KEYS.API_URL, import.meta.env.VITE_API_URL || '')
@@ -69,6 +144,8 @@ export function AppProvider({ children }) {
   const [orders, setOrders] = useState(() => readStorageJson(STORAGE_KEYS.ORDERS, buildInitialOrders()));
   const [serverCalendarSlots, setServerCalendarSlots] = useState(null);
   const [rolePins, setRolePins] = useState(() => readStorageJson(STORAGE_KEYS.PINS, DEFAULT_ROLE_PINS));
+  const [staffAccounts, setStaffAccounts] = useState(() => hydrateStaffAccounts());
+  const [serverStaffAccounts, setServerStaffAccounts] = useState(null);
   const [auditLogs, setAuditLogs] = useState(() => readStorageJson(STORAGE_KEYS.AUDIT, []));
   const [likedIds, setLikedIds] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
@@ -112,6 +189,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     writeStorageJson(STORAGE_KEYS.PINS, rolePins);
   }, [rolePins]);
+
+  useEffect(() => {
+    writeStorageJson(STORAGE_KEYS.ACCOUNTS, staffAccounts);
+  }, [staffAccounts]);
 
   useEffect(() => {
     writeStorageJson(STORAGE_KEYS.AUDIT, auditLogs);
@@ -159,6 +240,7 @@ export function AppProvider({ children }) {
           if (state.stalls) setStalls(state.stalls);
           if (state.orders) setOrders(state.orders);
           if (state.auditLogs) setAuditLogs(state.auditLogs);
+          if (Array.isArray(state.staffAccounts)) setServerStaffAccounts(state.staffAccounts);
         } else if (roleToLoad === ROLES.ADMIN) {
           const dash = await client.getAdminDashboard();
           if (dash.config) setConfig(dash.config);
@@ -166,6 +248,8 @@ export function AppProvider({ children }) {
           if (dash.stalls) setStalls(dash.stalls);
           if (dash.orders) setOrders(dash.orders);
           if (dash.auditLogs) setAuditLogs(dash.auditLogs);
+          const acct = await client.getAuthAccounts().catch(() => null);
+          if (acct?.accounts) setServerStaffAccounts(acct.accounts);
         } else if (roleToLoad === ROLES.KITCHEN) {
           const res = await client.getKitchenSheet();
           if (res.sheet?.ordersOnDate) {
@@ -203,6 +287,107 @@ export function AppProvider({ children }) {
     [activeRole, triggerToast]
   );
 
+  const findLocalAccountByIdentifier = useCallback(
+    (identifier) => {
+      const key = normalizeIdentifier(identifier);
+      if (!key) return null;
+      return (
+        Object.values(staffAccounts).find(
+          (acc) => normalizeIdentifier(acc.email) === key || normalizeIdentifier(acc.username) === key
+        ) || null
+      );
+    },
+    [staffAccounts]
+  );
+
+  const authenticateStaff = useCallback(
+    async ({ identifier, password, role: requestedRole, rememberMe = false }) => {
+      const cleanId = String(identifier || '').trim();
+      const cleanPw = String(password || '');
+      if (!cleanId || !cleanPw) {
+        throw new Error('Email/username dan password wajib diisi.');
+      }
+
+      if (apiUrl && backendStatus === 'connected') {
+        const res = await api.login({
+          identifier: cleanId,
+          password: cleanPw,
+          role: requestedRole,
+          rememberMe,
+        });
+        setAuthToken(res.token);
+        setActiveRole(res.role);
+        setActiveView(res.role === ROLES.KITCHEN ? 'kitchen' : res.role === ROLES.ADMIN ? 'admin' : 'developer');
+        await refreshProtectedData(res.role, res.token);
+        triggerToast(`Selamat datang, ${res.account?.displayName || ROLE_META[res.role]?.label || res.role}.`);
+        return { ok: true, role: res.role, account: res.account };
+      }
+
+      const acc = findLocalAccountByIdentifier(cleanId);
+      if (!acc) {
+        throw new Error('Email/username atau password tidak valid.');
+      }
+      if (requestedRole && acc.role !== requestedRole) {
+        throw new Error(
+          `Akun ini terdaftar sebagai ${ROLE_META[acc.role]?.shortLabel || acc.role}, bukan ${ROLE_META[requestedRole]?.shortLabel || requestedRole}. Pilih tab role yang sesuai.`
+        );
+      }
+      if (acc.lockedUntil) {
+        const lockEnds = new Date(acc.lockedUntil).getTime();
+        if (lockEnds > Date.now()) {
+          const sec = Math.ceil((lockEnds - Date.now()) / 1000);
+          throw new Error(
+            `Akun dikunci sementara karena terlalu banyak percobaan gagal. Coba lagi dalam ${sec} detik atau gunakan Lupa Password.`
+          );
+        }
+      }
+
+      const expectedPw = acc.password || rolePins[acc.role];
+      if (cleanPw !== String(expectedPw)) {
+        const nextAttempts = Number(acc.failedAttempts || 0) + 1;
+        const lockedUntil =
+          nextAttempts >= LOCAL_MAX_LOGIN_ATTEMPTS
+            ? new Date(Date.now() + LOCAL_LOCKOUT_MS).toISOString()
+            : null;
+        setStaffAccounts((prev) => ({
+          ...prev,
+          [acc.role]: {
+            ...prev[acc.role],
+            failedAttempts: nextAttempts,
+            lockedUntil,
+          },
+        }));
+        const remaining = Math.max(0, LOCAL_MAX_LOGIN_ATTEMPTS - nextAttempts);
+        if (lockedUntil) {
+          throw new Error(
+            `Terlalu banyak percobaan gagal (${LOCAL_MAX_LOGIN_ATTEMPTS}x). Akun dikunci sementara selama 2 menit.`
+          );
+        }
+        throw new Error(`Password tidak valid. Sisa ${remaining} percobaan sebelum akun dikunci sementara.`);
+      }
+
+      setStaffAccounts((prev) => ({
+        ...prev,
+        [acc.role]: { ...prev[acc.role], failedAttempts: 0, lockedUntil: null },
+      }));
+      setActiveRole(acc.role);
+      setActiveView(acc.role === ROLES.KITCHEN ? 'kitchen' : acc.role === ROLES.ADMIN ? 'admin' : 'developer');
+      recordLocalAudit(acc.role, 'AUTH_LOGIN', acc.username, `Login berhasil sebagai ${acc.displayName}`);
+      triggerToast(`Selamat datang, ${acc.displayName}.`);
+      return { ok: true, role: acc.role, account: toSafeAccountMeta(acc) };
+    },
+    [
+      api,
+      apiUrl,
+      backendStatus,
+      findLocalAccountByIdentifier,
+      recordLocalAudit,
+      refreshProtectedData,
+      rolePins,
+      triggerToast,
+    ]
+  );
+
   const authenticateRole = useCallback(
     async (role, pin) => {
       if (role === ROLES.CLIENT) {
@@ -211,28 +396,289 @@ export function AppProvider({ children }) {
         setActiveView('showcase');
         return { ok: true };
       }
+      const target = staffAccounts[role];
+      return authenticateStaff({
+        identifier: target?.email || role,
+        password: pin,
+        role,
+      });
+    },
+    [authenticateStaff, staffAccounts]
+  );
+
+  const requestPasswordReset = useCallback(
+    async ({ identifier, role: requestedRole }) => {
+      const cleanId = String(identifier || '').trim();
+      if (!cleanId) throw new Error('Masukkan email atau username akun Anda.');
 
       if (apiUrl && backendStatus === 'connected') {
-        const res = await api.login(role, pin);
-        setAuthToken(res.token);
-        setActiveRole(res.role);
-        setActiveView(res.role === ROLES.KITCHEN ? 'kitchen' : res.role === ROLES.ADMIN ? 'admin' : 'developer');
-        await refreshProtectedData(res.role, res.token);
-        triggerToast(`Berhasil masuk sebagai ${role.toUpperCase()} (Terverifikasi Server).`);
-        return { ok: true };
+        return api.requestPasswordReset({ identifier: cleanId, role: requestedRole });
       }
 
-      const expected = rolePins[role];
-      if (!expected || String(pin).trim() !== String(expected)) {
-        throw new Error('PIN akses tidak valid untuk role tersebut.');
+      const acc = findLocalAccountByIdentifier(cleanId);
+      if (!acc || (requestedRole && acc.role !== requestedRole)) {
+        throw new Error('Akun dengan email atau username tersebut tidak ditemukan.');
       }
-      setActiveRole(role);
-      setActiveView(role === ROLES.KITCHEN ? 'kitchen' : role === ROLES.ADMIN ? 'admin' : 'developer');
-      recordLocalAudit(role, 'AUTH_LOGIN', role, `Sesi lokal dibuka untuk role ${role}`);
-      triggerToast(`Mode aktif: ${role.toUpperCase()}.`);
+
+      const otpCode = generateLocalOtpCode();
+      const expiresAt = new Date(Date.now() + LOCAL_OTP_TTL_MS).toISOString();
+      setStaffAccounts((prev) => ({
+        ...prev,
+        [acc.role]: {
+          ...prev[acc.role],
+          resetChallenge: { code: otpCode, expiresAt, attempts: 0 },
+        },
+      }));
+      recordLocalAudit(acc.role, 'AUTH_RESET_REQUESTED', acc.username, 'Kode OTP lupa password dibuat (Mode Preview)');
+      return {
+        ok: true,
+        message: `Kode OTP 6-digit telah dibuat untuk ${maskEmail(acc.email)}.`,
+        maskedEmail: maskEmail(acc.email),
+        role: acc.role,
+        expiresAt,
+        expiresInSeconds: Math.floor(LOCAL_OTP_TTL_MS / 1000),
+        deliveryMode: 'preview-local',
+        previewCode: otpCode,
+      };
+    },
+    [api, apiUrl, backendStatus, findLocalAccountByIdentifier, recordLocalAudit]
+  );
+
+  const verifyPasswordResetCode = useCallback(
+    async ({ identifier, code }) => {
+      const cleanCode = String(code || '').trim();
+      if (!/^\d{6}$/.test(cleanCode)) {
+        throw new Error('Kode OTP harus terdiri dari 6 digit angka.');
+      }
+      if (apiUrl && backendStatus === 'connected') {
+        return api.verifyResetCode({ identifier, code: cleanCode });
+      }
+
+      const acc = findLocalAccountByIdentifier(identifier);
+      const challenge = acc?.resetChallenge;
+      if (!acc || !challenge) {
+        throw new Error('Permintaan reset tidak ditemukan atau sudah kedaluwarsa.');
+      }
+      if (new Date(challenge.expiresAt).getTime() < Date.now()) {
+        setStaffAccounts((prev) => ({
+          ...prev,
+          [acc.role]: { ...prev[acc.role], resetChallenge: null },
+        }));
+        throw new Error('Kode OTP telah kedaluwarsa. Silakan minta kode baru.');
+      }
+      if (Number(challenge.attempts || 0) >= 5) {
+        setStaffAccounts((prev) => ({
+          ...prev,
+          [acc.role]: { ...prev[acc.role], resetChallenge: null },
+        }));
+        throw new Error('Terlalu banyak percobaan OTP salah. Silakan minta kode baru.');
+      }
+      if (challenge.code !== cleanCode) {
+        const nextAttempts = Number(challenge.attempts || 0) + 1;
+        setStaffAccounts((prev) => ({
+          ...prev,
+          [acc.role]: {
+            ...prev[acc.role],
+            resetChallenge: { ...challenge, attempts: nextAttempts },
+          },
+        }));
+        const left = Math.max(0, 5 - nextAttempts);
+        throw new Error(
+          left > 0 ? `Kode OTP tidak sesuai. Sisa ${left} percobaan.` : 'Batas percobaan OTP habis. Minta kode baru.'
+        );
+      }
+
+      return { ok: true, role: acc.role, maskedEmail: maskEmail(acc.email) };
+    },
+    [api, apiUrl, backendStatus, findLocalAccountByIdentifier]
+  );
+
+  const completePasswordReset = useCallback(
+    async ({ method, identifier, code, recoveryKey, newPassword, confirmPassword }) => {
+      const policyErr = getPasswordPolicyError(newPassword);
+      if (policyErr) throw new Error(policyErr);
+      if (newPassword !== confirmPassword) {
+        throw new Error('Konfirmasi password tidak cocok.');
+      }
+
+      if (apiUrl && backendStatus === 'connected') {
+        const res = await api.resetPassword({
+          method,
+          identifier,
+          code,
+          recoveryKey,
+          newPassword,
+          confirmPassword,
+        });
+        triggerToast('Password berhasil direset. Silakan masuk dengan password baru.');
+        return res;
+      }
+
+      const acc = findLocalAccountByIdentifier(identifier);
+      if (!acc) {
+        throw new Error('Akun dengan email atau username tersebut tidak ditemukan.');
+      }
+
+      if (method === 'otp') {
+        const challenge = acc.resetChallenge;
+        if (!challenge) {
+          throw new Error('Kode OTP belum diminta atau sudah kedaluwarsa.');
+        }
+        if (new Date(challenge.expiresAt).getTime() < Date.now()) {
+          throw new Error('Kode OTP telah kedaluwarsa. Silakan minta kode baru.');
+        }
+        if (challenge.code !== String(code || '').trim()) {
+          throw new Error('Kode OTP tidak valid.');
+        }
+      } else {
+        if (normalizeRecoveryKey(recoveryKey) !== normalizeRecoveryKey(acc.recoveryKey)) {
+          throw new Error('Master Recovery Key tidak cocok dengan akun tersebut.');
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      setStaffAccounts((prev) => ({
+        ...prev,
+        [acc.role]: {
+          ...prev[acc.role],
+          password: newPassword,
+          failedAttempts: 0,
+          lockedUntil: null,
+          resetChallenge: null,
+          updatedAt: nowIso,
+        },
+      }));
+      setRolePins((prev) => ({ ...prev, [acc.role]: newPassword }));
+      recordLocalAudit(
+        acc.role,
+        'AUTH_PASSWORD_RESET',
+        acc.username,
+        `Password akun ${acc.role} direset via ${method === 'otp' ? 'Email OTP' : 'Master Recovery Key'}`
+      );
+      triggerToast('Password baru berhasil disimpan! Silakan login kembali.');
+      return {
+        ok: true,
+        role: acc.role,
+        email: acc.email,
+        message: 'Password baru berhasil disimpan.',
+      };
+    },
+    [api, apiUrl, backendStatus, findLocalAccountByIdentifier, recordLocalAudit, triggerToast]
+  );
+
+  const changeOwnPassword = useCallback(
+    async ({ currentPassword, newPassword, confirmPassword }) => {
+      const policyErr = getPasswordPolicyError(newPassword);
+      if (policyErr) throw new Error(policyErr);
+      if (newPassword !== confirmPassword) {
+        throw new Error('Konfirmasi password tidak cocok.');
+      }
+      if (currentPassword === newPassword) {
+        throw new Error('Password baru harus berbeda dari password saat ini.');
+      }
+
+      if (apiUrl && backendStatus === 'connected' && authToken) {
+        const res = await api.changePassword({ currentPassword, newPassword, confirmPassword });
+        triggerToast('Password akun Anda berhasil diperbarui di server.');
+        return res;
+      }
+
+      const acc = staffAccounts[activeRole];
+      if (!acc || String(currentPassword) !== String(acc.password)) {
+        throw new Error('Password saat ini tidak sesuai.');
+      }
+      const nowIso = new Date().toISOString();
+      setStaffAccounts((prev) => ({
+        ...prev,
+        [activeRole]: {
+          ...prev[activeRole],
+          password: newPassword,
+          failedAttempts: 0,
+          lockedUntil: null,
+          updatedAt: nowIso,
+        },
+      }));
+      setRolePins((prev) => ({ ...prev, [activeRole]: newPassword }));
+      recordLocalAudit(activeRole, 'AUTH_PASSWORD_CHANGED', acc.username, 'Memperbarui password akun secara mandiri');
+      triggerToast('Password akun Anda berhasil diperbarui.');
       return { ok: true };
     },
-    [api, apiUrl, backendStatus, recordLocalAudit, refreshProtectedData, rolePins, triggerToast]
+    [activeRole, api, apiUrl, authToken, backendStatus, recordLocalAudit, staffAccounts, triggerToast]
+  );
+
+  const rotateAccountRecoveryKey = useCallback(
+    async ({ currentPassword, targetRole }) => {
+      const roleToRotate = targetRole || activeRole;
+      if (roleToRotate !== activeRole && activeRole !== ROLES.DEVELOPER) {
+        throw new Error('Hanya Pengembang yang dapat merotasi Recovery Key akun lain.');
+      }
+
+      if (apiUrl && backendStatus === 'connected' && authToken) {
+        const res = await api.rotateRecoveryKey({ currentPassword, targetRole: roleToRotate });
+        triggerToast(`Master Recovery Key untuk ${ROLE_META[roleToRotate]?.shortLabel} berhasil diperbarui.`);
+        return res;
+      }
+
+      const actor = staffAccounts[activeRole];
+      if (!actor || String(currentPassword) !== String(actor.password)) {
+        throw new Error('Verifikasi password Anda gagal.');
+      }
+
+      const newRecoveryKey = generateLocalRecoveryKey(roleToRotate);
+      const nowIso = new Date().toISOString();
+      setStaffAccounts((prev) => ({
+        ...prev,
+        [roleToRotate]: {
+          ...prev[roleToRotate],
+          recoveryKey: newRecoveryKey,
+          updatedAt: nowIso,
+        },
+      }));
+      recordLocalAudit(
+        activeRole,
+        'AUTH_RECOVERY_KEY_ROTATED',
+        roleToRotate,
+        `Master Recovery Key untuk ${roleToRotate} diperbarui`
+      );
+      triggerToast(`Master Recovery Key baru untuk ${ROLE_META[roleToRotate]?.shortLabel} berhasil dibuat.`);
+      return { ok: true, role: roleToRotate, recoveryKey: newRecoveryKey };
+    },
+    [activeRole, api, apiUrl, authToken, backendStatus, recordLocalAudit, staffAccounts, triggerToast]
+  );
+
+  const developerResetStaffPassword = useCallback(
+    async (targetRole, newPassword) => {
+      if (!hasScope(activeRole, SCOPES.DEV_RBAC_PIN_EDIT)) {
+        throw new Error('Hanya Pengembang yang diizinkan mereset password tim.');
+      }
+      const policyErr = getPasswordPolicyError(newPassword);
+      if (policyErr) throw new Error(policyErr);
+
+      if (apiUrl && backendStatus === 'connected' && authToken) {
+        const res = await api.developerResetPassword(targetRole, newPassword);
+        await refreshProtectedData(activeRole, authToken);
+        triggerToast(`Password ${ROLE_META[targetRole]?.label || targetRole} berhasil direset.`);
+        return res;
+      }
+
+      const nowIso = new Date().toISOString();
+      setStaffAccounts((prev) => ({
+        ...prev,
+        [targetRole]: {
+          ...prev[targetRole],
+          password: newPassword,
+          failedAttempts: 0,
+          lockedUntil: null,
+          resetChallenge: null,
+          updatedAt: nowIso,
+        },
+      }));
+      setRolePins((prev) => ({ ...prev, [targetRole]: newPassword }));
+      recordLocalAudit(activeRole, 'DEV_RESET_STAFF_PASSWORD', targetRole, `Pengembang mereset password akun ${targetRole}`);
+      triggerToast(`Password ${ROLE_META[targetRole]?.label || targetRole} berhasil direset.`);
+      return { ok: true };
+    },
+    [activeRole, api, apiUrl, authToken, backendStatus, recordLocalAudit, refreshProtectedData, triggerToast]
   );
 
   const quickSwitchDemoRole = useCallback(
@@ -513,8 +959,24 @@ export function AppProvider({ children }) {
       }
       if (newRolePins) {
         setRolePins((prev) => ({ ...prev, ...newRolePins }));
+        setStaffAccounts((prev) => {
+          const next = { ...prev };
+          const nowIso = new Date().toISOString();
+          for (const [rKey, nextPw] of Object.entries(newRolePins)) {
+            if (nextPw && next[rKey]) {
+              next[rKey] = {
+                ...next[rKey],
+                password: nextPw,
+                failedAttempts: 0,
+                lockedUntil: null,
+                updatedAt: nowIso,
+              };
+            }
+          }
+          return next;
+        });
       }
-      recordLocalAudit(activeRole, 'DEVELOPER_CONFIG_UPDATED', 'system', 'Pengembang mengubah tema/flags/PIN');
+      recordLocalAudit(activeRole, 'DEVELOPER_CONFIG_UPDATED', 'system', 'Pengembang mengubah konfigurasi sistem');
       triggerToast('Pengaturan Pengembang berhasil diterapkan.');
     },
     [activeRole, api, apiUrl, authToken, backendStatus, recordLocalAudit, triggerToast]
@@ -573,9 +1035,23 @@ export function AppProvider({ children }) {
     setStalls(INITIAL_STALLS);
     setOrders(buildInitialOrders());
     setRolePins(DEFAULT_ROLE_PINS);
+    setStaffAccounts(buildInitialStaffAccounts());
+    setServerStaffAccounts(null);
     setAuditLogs([]);
     triggerToast('Seluruh data & pengaturan dikembalikan ke standar pabrik.');
   }, [activeRole, api, apiUrl, authToken, backendStatus, refreshProtectedData, triggerToast]);
+
+  const staffAccountsList = useMemo(() => {
+    if (Array.isArray(serverStaffAccounts) && serverStaffAccounts.length > 0) {
+      return serverStaffAccounts;
+    }
+    return Object.values(staffAccounts).map(toSafeAccountMeta);
+  }, [serverStaffAccounts, staffAccounts]);
+
+  const activeAccount = useMemo(
+    () => staffAccountsList.find((a) => a.role === activeRole) || null,
+    [activeRole, staffAccountsList]
+  );
 
   const calendarDates = useMemo(
     () =>
@@ -595,6 +1071,7 @@ export function AppProvider({ children }) {
       apiUrl,
       backendStatus,
       activeRole,
+      activeAccount,
       activeScopes: getRoleScopes(activeRole),
       activeView,
       navigateView,
@@ -605,6 +1082,7 @@ export function AppProvider({ children }) {
       calendarDates,
       kpiStats,
       rolePins,
+      staffAccountsList,
       auditLogs,
       likedIds,
       toastMessage,
@@ -612,6 +1090,13 @@ export function AppProvider({ children }) {
       hasScope: (scope) => hasScope(activeRole, scope),
       triggerToast,
       authenticateRole,
+      authenticateStaff,
+      requestPasswordReset,
+      verifyPasswordResetCode,
+      completePasswordReset,
+      changeOwnPassword,
+      rotateAccountRecoveryKey,
+      developerResetStaffPassword,
       quickSwitchDemoRole,
       logoutToClient,
       toggleLikePackage,
@@ -629,16 +1114,21 @@ export function AppProvider({ children }) {
       resetAllDemoData,
     }),
     [
+      activeAccount,
       activeRole,
       activeView,
       apiUrl,
       auditLogs,
       authenticateRole,
+      authenticateStaff,
       backendStatus,
       calendarDates,
+      changeOwnPassword,
+      completePasswordReset,
       config,
       createOrder,
       deletePackage,
+      developerResetStaffPassword,
       importDeveloperSnapshot,
       kpiStats,
       likedIds,
@@ -647,11 +1137,14 @@ export function AppProvider({ children }) {
       orders,
       packages,
       quickSwitchDemoRole,
+      requestPasswordReset,
       resetAllDemoData,
       rolePins,
+      rotateAccountRecoveryKey,
       saveBusinessSettings,
       saveDeveloperConfig,
       savePackage,
+      staffAccountsList,
       stalls,
       toastMessage,
       toggleLikePackage,
@@ -661,6 +1154,7 @@ export function AppProvider({ children }) {
       updateBackendConnection,
       updateClientNote,
       updateKitchenStage,
+      verifyPasswordResetCode,
     ]
   );
 
