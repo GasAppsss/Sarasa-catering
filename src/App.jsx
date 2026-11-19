@@ -3,11 +3,13 @@ import { CheckCircle2 } from 'lucide-react';
 import { Footer } from './components/layout/Footer.jsx';
 import { Navbar } from './components/layout/Navbar.jsx';
 import { TeamAuthModal } from './components/layout/TeamAuthModal.jsx';
+import { OrderTrackerModal } from './components/shared/OrderTrackerModal.jsx';
 import { PackageDetailDrawer } from './components/shared/PackageDetailDrawer.jsx';
 import { ROLES, SCOPES } from './config/rbac.js';
 import { AppProvider, useApp } from './context/AppContext.jsx';
 import { AdminDashboardView } from './features/admin/AdminDashboardView.jsx';
-import { BookingWizard } from './features/client/BookingWizard.jsx';
+import { BookingCalculator } from './features/client/BookingCalculator.jsx';
+import { CapacityCalendar } from './features/client/CapacityCalendar.jsx';
 import { ClientPortalView } from './features/client/ClientPortalView.jsx';
 import { HeroShowcase } from './features/client/HeroShowcase.jsx';
 import { InfoAndFaqSection } from './features/client/InfoAndFaqSection.jsx';
@@ -35,8 +37,10 @@ function AppShell() {
   const [selectedPkgId, setSelectedPkgId] = useState(activePackages[0]?.id || 'pkg-1');
   const [pax, setPax] = useState(activePackages[0]?.minOrder || 50);
   const [eventDate, setEventDate] = useState(firstAvailableDate);
+  const [formError, setFormError] = useState('');
 
   const [drawerPkg, setDrawerPkg] = useState(null);
+  const [trackerOpen, setTrackerOpen] = useState(false);
   const [portalOrder, setPortalOrder] = useState(null);
   const [authModalState, setAuthModalState] = useState({
     open: false,
@@ -82,7 +86,7 @@ function AppShell() {
     }
     navigateView('showcase');
     setTimeout(() => {
-      document.getElementById('booking-wizard-section')?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('booking-calculator-section')?.scrollIntoView({ behavior: 'smooth' });
     }, 60);
   };
 
@@ -118,19 +122,27 @@ function AppShell() {
           activeIndex={showcaseIdx}
           onSelectIndex={handleSelectShowcaseIndex}
           onSelectPackageForBooking={handleSelectPackageForBooking}
-          onOpenDetailDrawer={(pkg) => setDrawerPkg(pkg)}
+          onOpenTracker={() => setTrackerOpen(true)}
+          onOpenClientPortal={() => openPortalWithOrder(null)}
         />
         <PackageCatalogSection
           onSelectPackageForBooking={handleSelectPackageForBooking}
           onOpenDetailDrawer={(pkg) => setDrawerPkg(pkg)}
         />
-        <BookingWizard
+        <CapacityCalendar
+          selectedDate={eventDate}
+          onSelectDate={setEventDate}
+          onErrorMessage={setFormError}
+        />
+        <BookingCalculator
           selectedPkgId={selectedPkgId}
           onChangePkgId={setSelectedPkgId}
           pax={pax}
           onChangePax={setPax}
           eventDate={eventDate}
           onChangeEventDate={setEventDate}
+          formError={formError}
+          onChangeFormError={setFormError}
           onOrderCreated={(ord) => setPortalOrder(ord)}
           onOpenClientPortal={openPortalWithOrder}
         />
@@ -140,7 +152,7 @@ function AppShell() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-brand-bg text-zinc-800 font-sans selection:bg-emerald-100 selection:text-emerald-950 flex flex-col justify-between">
+    <div className="min-h-screen overflow-x-clip bg-brand-bg text-stone-800 font-sans selection:bg-amber-200 selection:text-emerald-950 flex flex-col justify-between">
       <div>
         <Navbar
           onOpenTeamAuth={() =>
@@ -163,10 +175,10 @@ function AppShell() {
       {toastMessage && (
         <div
           role="status"
-          className="no-print fixed bottom-6 right-6 z-50 max-w-sm bg-zinc-900 text-white px-4 py-3 rounded-xl shadow-lg border border-zinc-700 flex items-center gap-2.5 animate-slide-in-right"
+          className="no-print fixed bottom-6 right-6 z-50 max-w-sm bg-brand-dark text-white px-4 py-3.5 rounded-2xl shadow-2xl border border-amber-400/60 flex items-center gap-3 animate-slide-in-right"
         >
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <p className="text-xs font-medium">{toastMessage}</p>
+          <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+          <p className="text-sm font-medium">{toastMessage}</p>
         </div>
       )}
 
@@ -174,6 +186,12 @@ function AppShell() {
         pkg={drawerPkg}
         onClose={() => setDrawerPkg(null)}
         onSelectPackage={handleSelectPackageForBooking}
+      />
+
+      <OrderTrackerModal
+        isOpen={trackerOpen}
+        onClose={() => setTrackerOpen(false)}
+        onOpenClientPortal={openPortalWithOrder}
       />
 
       <TeamAuthModal

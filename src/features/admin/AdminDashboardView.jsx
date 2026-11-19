@@ -30,13 +30,13 @@ export function AdminDashboardView({ onSwitchToShowcase }) {
     <DashboardShell
       roleLabel="POV Administrator"
       title={`Pusat Kendali ${config.brand?.name || 'Sajian Catering'}`}
-      subtitle="Kelola omzet, margin HPP, verifikasi DP, katalog paket, dan aturan bisnis."
+      subtitle="Kelola omzet, margin HPP, verifikasi DP, katalog paket, dan pengaturan operasional perusahaan."
       navItems={TABS}
       activeTab={activeTab}
       onSelectTab={setActiveTab}
       onBackToSite={onSwitchToShowcase}
     >
-      <div className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-6">
+      <div className="bg-white rounded-3xl border border-stone-200 p-4 sm:p-6 shadow-sm">
         {activeTab === 'overview' && <AdminOverviewTab />}
         {activeTab === 'orders' && <AdminOrdersTab />}
         {activeTab === 'catalog' && <AdminCatalogTab />}

@@ -8,24 +8,23 @@ describe('Sajian Catering Ultra-Clean Multi-POV Frontend', () => {
     localStorage.clear();
   });
 
-  it('renders ultra-clean public showcase without exposing internal POVs', () => {
+  it('renders rich animated Royal Emerald showcase without exposing internal POVs', () => {
     render(<App />);
     expect(screen.getAllByText(/SAJIAN/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Hidangan Istimewa/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ROYAL BUFFET/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Katalog Paket Catering Pilihan')).toBeInTheDocument();
     expect(screen.queryByText('Pengaturan Sistem & Kustomisasi Pengembang')).not.toBeInTheDocument();
     expect(screen.queryByText('Kitchen Command Center')).not.toBeInTheDocument();
   });
 
-  it('opens slide-over package detail drawer and guides 3-step booking wizard', () => {
+  it('opens slide-over package detail drawer and pre-selects package in booking calculator', () => {
     render(<App />);
     fireEvent.click(screen.getAllByRole('button', { name: /Detail Lengkap/i })[0]);
     expect(screen.getByText(/Komposisi Hidangan/i)).toBeInTheDocument();
-    expect(screen.getByText(/Informasi Alergen/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Informasi Alergen/i).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: /Pilih Paket Ini untuk Pesan/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Lanjut: Pilih Tanggal/i }));
-    expect(screen.getByText(/Ketersediaan Dapur/i)).toBeInTheDocument();
+    expect(screen.getByText('Kalkulator Estimasi Biaya & Formulir Booking')).toBeInTheDocument();
   });
 
   it('allows client to inspect bookings inside Portal Klien without exposing HPP', async () => {

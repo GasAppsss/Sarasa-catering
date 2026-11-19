@@ -1,8 +1,8 @@
-name: Deploy Sajian Catering to GitHub Pages
+name: Deploy Sajian Catering (Production & Dev Preview)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "dev"]
   workflow_dispatch:
 
 permissions:
@@ -18,8 +18,11 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository with all branches
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
@@ -28,24 +31,55 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             backend/package-lock.json
-      - name: Install & Test Backend
+
+      - name: Install & Test Backend on current branch
         working-directory: backend
         run: |
           npm ci
           npm test
-      - name: Install, Test & Build Frontend
+
+      - name: Install & Test Frontend on current branch
         run: |
           npm ci
           npm test
-          npm run build
+
+      - name: Build Production (origin/main) into ./site
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_BASE_PATH: /Sarasa-catering/
+        run: |
+          git worktree add _prod_main origin/main
+          cd _prod_main
+          npm ci
+          npm run build
+          cd ..
+          mkdir -p site
+          cp -r _prod_main/dist/* site/
+          git worktree remove --force _prod_main
+
+      - name: Build Dev Preview (origin/dev) into ./site/preview
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_BASE_PATH: /Sarasa-catering/preview/
+        run: |
+          if git show-ref --verify --quiet refs/remotes/origin/dev; then
+            git worktree add _dev_preview origin/dev
+            cd _dev_preview
+            npm ci
+            npm run build
+            cd ..
+            mkdir -p site/preview
+            cp -r _dev_preview/dist/* site/preview/
+            git worktree remove --force _dev_preview
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Upload artifact
+
+      - name: Upload combined Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "./dist"
+          path: "./site"
 
   deploy:
     needs: test-and-build

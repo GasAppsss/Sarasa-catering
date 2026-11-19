@@ -48,15 +48,15 @@ export function TeamAuthModal({ isOpen, onClose, initialRole = ROLES.KITCHEN, sh
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-lg">
-      <div className="bg-white rounded-2xl overflow-hidden shadow-2xl border border-zinc-200">
-        <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-2xl border border-stone-200">
+        <div className="bg-brand-dark text-white p-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-brand-primary text-white flex items-center justify-center">
-              <KeyRound className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-brand-accent text-brand-dark flex items-center justify-center">
+              <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-zinc-900">Portal Akses Tim &amp; Pengembang</h3>
-              <p className="text-[11px] text-zinc-500">
+              <h3 className="font-extrabold text-base">Portal Akses Tim &amp; Pengembang</h3>
+              <p className="text-[11px] text-emerald-200">
                 {backendStatus === 'connected'
                   ? 'Autentikasi terhubung ke server API (JWT + scrypt)'
                   : 'Mode Demo Lokal — pilih role dan masukkan PIN akses'}
@@ -67,7 +67,7 @@ export function TeamAuthModal({ isOpen, onClose, initialRole = ROLES.KITCHEN, sh
             type="button"
             aria-label="Tutup modal autentikasi"
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-700 cursor-pointer"
+            className="text-emerald-200 hover:text-white cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

@@ -41,29 +41,29 @@ export const INITIAL_BUSINESS = {
 };
 
 export const THEME_PRESETS = {
-  'warm-editorial': {
-    label: 'Warm White Editorial',
+  'royal-emerald': {
+    label: 'Royal Emerald Gold',
     primary: '#064E3B',
-    primaryDark: '#052E23',
-    accent: '#D97706',
-    background: '#FAFAFA',
+    primaryDark: '#043927',
+    accent: '#F59E0B',
+    background: '#F5F3EE',
     surface: '#FFFFFF',
     radiusScale: 'rounded',
   },
-  'soft-ivory': {
-    label: 'Soft Ivory Heritage',
-    primary: '#065F46',
-    primaryDark: '#043927',
-    accent: '#B45309',
-    background: '#F8F7F4',
+  'terracotta-warm': {
+    label: 'Warm Terracotta Feast',
+    primary: '#7C2D12',
+    primaryDark: '#431407',
+    accent: '#D97706',
+    background: '#FDF8F4',
     surface: '#FFFFFF',
     radiusScale: 'rounded',
   },
   'slate-trust': {
-    label: 'Modern Slate Minimal',
+    label: 'Modern Slate Corporate',
     primary: '#0F172A',
     primaryDark: '#020617',
-    accent: '#2563EB',
+    accent: '#0284C7',
     background: '#F8FAFC',
     surface: '#FFFFFF',
     radiusScale: 'sharp',
@@ -71,8 +71,8 @@ export const THEME_PRESETS = {
 };
 
 export const INITIAL_THEME_TOKENS = {
-  presetId: 'warm-editorial',
-  ...THEME_PRESETS['warm-editorial'],
+  presetId: 'royal-emerald',
+  ...THEME_PRESETS['royal-emerald'],
   reduceMotion: false,
 };
 
