@@ -97,26 +97,27 @@ export function Navbar({ onOpenTeamAuth }) {
         </div>
       )}
 
-      <div className="sc-container h-16 flex items-center justify-between gap-4">
+      <div className="sc-container h-16 flex items-center justify-between gap-2 sm:gap-4">
         <button
           type="button"
           onClick={() => goTo('showcase')}
-          className="flex items-center gap-3 text-left cursor-pointer group min-w-0"
+          className="flex items-center gap-2.5 sm:gap-3 text-left cursor-pointer group min-w-0"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md shadow-amber-500/20 animate-glow shrink-0 group-hover:scale-105 transition-transform">
-            <Utensils className="w-5 h-5 stroke-[2.5]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 flex items-center justify-center text-emerald-950 shadow-md shadow-amber-500/20 animate-glow shrink-0 group-hover:scale-105 transition-transform">
+            <Utensils className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-lg leading-none tracking-tight text-white">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-extrabold text-base sm:text-lg leading-none tracking-tight text-white">
                 {brand?.shortName || 'SAJIAN'}
               </span>
-              <span className="text-amber-400 font-light leading-none tracking-widest text-sm">
+              <span className="text-amber-400 font-light leading-none tracking-wider sm:tracking-widest text-xs sm:text-sm">
                 {brand?.subName || 'CATERING'}
               </span>
               {IS_DEV_PREVIEW && (
-                <span className="text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400 text-emerald-950 font-extrabold">
-                  Dev Preview
+                <span className="shrink-0 whitespace-nowrap text-[9px] uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-400 text-emerald-950 font-extrabold">
+                  <span className="sm:hidden">Dev</span>
+                  <span className="hidden sm:inline">Dev Preview</span>
                 </span>
               )}
             </div>
