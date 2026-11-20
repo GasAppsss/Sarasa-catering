@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS packages (
   rank_label TEXT NOT NULL,
   category TEXT NOT NULL,
   plate_style TEXT NOT NULL,
+  image_url TEXT NOT NULL DEFAULT '',
   accent_tint TEXT NOT NULL,
   price INTEGER NOT NULL,
   hpp INTEGER NOT NULL,
@@ -110,7 +111,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 `;
 
-export function createSqliteStore(sqlitePath) {
+export function createSqliteStore(sqlitePath, { seedDemoOrders = true } = {}) {
   let db = null;
   let readyPromise = null;
 
@@ -140,6 +141,10 @@ export function createSqliteStore(sqlitePath) {
       if (!cols.has(col)) {
         db.exec(`ALTER TABLE staff_credentials ADD COLUMN ${col} ${def};`);
       }
+    }
+    const pkgCols = new Set(db.prepare('PRAGMA table_info(packages)').all().map((c) => c.name));
+    if (!pkgCols.has('image_url')) {
+      db.exec("ALTER TABLE packages ADD COLUMN image_url TEXT NOT NULL DEFAULT '';");
     }
     return db;
   }
@@ -198,10 +203,12 @@ export function createSqliteStore(sqlitePath) {
       }
     }
 
-    const orderCount = conn.prepare('SELECT COUNT(*) AS c FROM orders').get().c;
-    if (orderCount === 0) {
-      for (const order of buildInitialOrders()) {
-        createOrderSync(order);
+    if (seedDemoOrders) {
+      const orderCount = conn.prepare('SELECT COUNT(*) AS c FROM orders').get().c;
+      if (orderCount === 0) {
+        for (const order of buildInitialOrders()) {
+          createOrderSync(order);
+        }
       }
     }
 
@@ -228,11 +235,11 @@ export function createSqliteStore(sqlitePath) {
     conn
       .prepare(
         `INSERT OR REPLACE INTO packages (
-          id, name, title_line_1, title_line_2, rank_label, category, plate_style, accent_tint,
+          id, name, title_line_1, title_line_2, rank_label, category, plate_style, image_url, accent_tint,
           price, hpp, min_order, rating, likes, chef_name, chef_title, chef_quote, serving_note,
           allergens_json, equipment_json, video_duration, video_highlights_json, items_json,
           is_active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM packages WHERE id = ?), ?), ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM packages WHERE id = ?), ?), ?)`
       )
       .run(
         pkg.id,
@@ -242,6 +249,7 @@ export function createSqliteStore(sqlitePath) {
         pkg.rankLabel || '#Baru Rilis',
         pkg.category,
         pkg.plateStyle || 'buffet',
+        pkg.imageUrl || '',
         pkg.accentTint || '#064E3B',
         pkg.price,
         pkg.hpp,
@@ -303,6 +311,11 @@ export function createSqliteStore(sqlitePath) {
 
   return {
     driver: 'sqlite',
+    async ping() {
+      const t0 = Date.now();
+      ensureOpen().prepare('SELECT 1 AS ok').get();
+      return { ok: true, latencyMs: Date.now() - t0 };
+    },
     async ensureReady() {
       if (!readyPromise) {
         readyPromise = Promise.resolve().then(() => {

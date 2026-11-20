@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getPasswordPolicyError,
   maskEmail,
@@ -17,7 +17,7 @@ import {
   INITIAL_PACKAGES,
   INITIAL_STALLS,
 } from '../data/seedData.js';
-import { createApiClient, normalizeBaseUrl } from '../services/apiClient.js';
+import { ApiError, createApiClient, normalizeBaseUrl } from '../services/apiClient.js';
 import { getDateOffset, hexToRgbTriplet, phonesMatch } from '../utils/format.js';
 import { calculateOrderPricing, computeCalendarDates, computeKpiStats } from '../utils/pricing.js';
 import {
@@ -197,6 +197,8 @@ export function AppProvider({ children }) {
   const [auditLogs, setAuditLogs] = useState(() => readStorageJson(STORAGE_KEYS.AUDIT, []));
   const [likedIds, setLikedIds] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
+  const verifiedTokenRef = useRef('');
+  const sessionCloudOrderIdsRef = useRef(new Set());
 
   const api = useMemo(
     () => createApiClient(() => apiUrl, () => authToken),
@@ -315,6 +317,50 @@ export function AppProvider({ children }) {
     [activeRole, apiUrl, authToken, backendStatus]
   );
 
+  useEffect(() => {
+    if (!apiUrl || backendStatus !== 'connected') return undefined;
+
+    if (!authToken) {
+      verifiedTokenRef.current = '';
+      if (activeRole === ROLES.CLIENT) {
+        setOrders((prev) => {
+          const filtered = prev.filter((o) => sessionCloudOrderIdsRef.current.has(o.id));
+          return filtered.length === prev.length ? prev : filtered;
+        });
+      }
+      return undefined;
+    }
+
+    if (verifiedTokenRef.current === authToken) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = createApiClient(() => apiUrl, () => authToken);
+        const me = await client.getMe();
+        if (cancelled) return;
+        verifiedTokenRef.current = authToken;
+        if (me?.role) {
+          setActiveRole(me.role);
+          await refreshProtectedData(me.role, authToken);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 401) {
+          verifiedTokenRef.current = '';
+          setAuthToken('');
+          setActiveRole(ROLES.CLIENT);
+          setActiveView('showcase');
+          triggerToast('Sesi login telah berakhir, silakan masuk kembali.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRole, apiUrl, authToken, backendStatus, refreshProtectedData, triggerToast]);
+
   const navigateView = useCallback(
     (targetView) => {
       if (targetView === 'kitchen' && !hasScope(activeRole, SCOPES.KITCHEN_SHEET_VIEW)) {
@@ -363,6 +409,7 @@ export function AppProvider({ children }) {
           role: requestedRole,
           rememberMe,
         });
+        verifiedTokenRef.current = res.token;
         setAuthToken(res.token);
         setActiveRole(res.role);
         setActiveView(res.role === ROLES.KITCHEN ? 'kitchen' : res.role === ROLES.ADMIN ? 'admin' : 'developer');
@@ -745,6 +792,8 @@ export function AppProvider({ children }) {
   );
 
   const logoutToClient = useCallback(() => {
+    verifiedTokenRef.current = '';
+    setServerStaffAccounts(null);
     setActiveRole(ROLES.CLIENT);
     setAuthToken('');
     setActiveView('showcase');
@@ -775,6 +824,7 @@ export function AppProvider({ children }) {
     async (formInput) => {
       if (apiUrl && backendStatus === 'connected') {
         const res = await api.createOrder(formInput);
+        sessionCloudOrderIdsRef.current.add(res.order.id);
         setOrders((prev) => [res.order, ...prev]);
         await syncPublicBootstrap();
         triggerToast(`Pesanan ${res.order.id} tersimpan ke server Sajian Catering!`);
@@ -829,6 +879,7 @@ export function AppProvider({ children }) {
     async (orderId, whatsapp) => {
       if (apiUrl && backendStatus === 'connected') {
         const res = await api.trackOrder(orderId, whatsapp);
+        sessionCloudOrderIdsRef.current.add(res.order.id);
         return res.order;
       }
       const idUpper = String(orderId || '').trim().toUpperCase();
@@ -925,6 +976,7 @@ export function AppProvider({ children }) {
       const pkg = {
         ...pkgInput,
         id: pkgInput.id || `pkg-${Date.now()}`,
+        imageUrl: pkgInput.imageUrl || '',
         likes: pkgInput.likes ?? 0,
         isActive: pkgInput.isActive !== false,
       };

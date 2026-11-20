@@ -29,6 +29,7 @@ export function loadConfig(env = process.env) {
   return {
     nodeEnv,
     isProd,
+    seedDemoOrders: env.SEED_DEMO_ORDERS === 'true' || !isProd,
     port: Number(env.PORT) || 4000,
     dbDriver,
     sqlitePath: env.SQLITE_PATH || path.resolve(process.cwd(), 'data', 'sajian.db'),

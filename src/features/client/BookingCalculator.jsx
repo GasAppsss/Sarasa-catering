@@ -27,7 +27,7 @@ export function BookingCalculator({
   onOrderCreated,
   onOpenClientPortal,
 }) {
-  const { packages, stalls, calendarDates, config, createOrder } = useApp();
+  const { packages, stalls, calendarDates, config, createOrder, backendStatus } = useApp();
   const activePackages = useMemo(() => packages.filter((p) => p.isActive !== false), [packages]);
   const activeStalls = useMemo(() => stalls.filter((s) => s.isActive !== false), [stalls]);
   const activePkg = useMemo(
@@ -91,6 +91,8 @@ export function BookingCalculator({
     return `Halo Admin *${config.brand?.name || 'Sajian Catering'}*, saya ingin konfirmasi pesanan berikut:\n\n*Kode Pesanan:* ${o.id}\n*Nama:* ${o.customerName}\n*Tanggal Acara:* ${formatTanggalIndo(o.eventDate)} (${o.eventTime} WIB)\n*Alamat:* ${o.address}\n\n*Paket Utama:* ${o.packageName} (${o.pax} pax)\n*Pondokan (Stall):*\n${stallLines}\n\n*Total Estimasi:* ${formatRupiah(o.totalAmount)}\n*Nominal DP (${dpPercent}%):* ${formatRupiah(o.dpAmount)}\n\nMohon konfirmasi transfer ke ${config.business?.bankName} (${config.business?.bankAccountNumber}). Terima kasih!`;
   };
 
+  const minLead = config.business?.minLeadDays ?? 1;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     onChangeFormError('');
@@ -98,11 +100,21 @@ export function BookingCalculator({
     if (Number(pax) < activePkg.minOrder) {
       return onChangeFormError(`Jumlah minimal pemesanan untuk ${activePkg.name} adalah ${activePkg.minOrder} pax.`);
     }
+    const earliestDate = getDateOffset(minLead);
+    if (!eventDate || eventDate < earliestDate) {
+      return onChangeFormError(
+        `Tanggal acara minimal H-${minLead} dari hari ini (${formatTanggalIndo(earliestDate, false)}).`
+      );
+    }
     if (isDateFullyBooked) {
       return onChangeFormError(`Maaf, tanggal ${formatTanggalIndo(eventDate)} sudah Penuh.`);
     }
     if (!customerName.trim() || !whatsapp.trim() || !address.trim()) {
       return onChangeFormError('Mohon lengkapi Nama Pemesan, Nomor WhatsApp, dan Alamat Acara.');
+    }
+    const waDigits = whatsapp.replace(/\D/g, '');
+    if (waDigits.length < 9) {
+      return onChangeFormError('Masukkan nomor WhatsApp aktif minimal 9 digit angka.');
     }
 
     setSubmitting(true);
@@ -132,8 +144,6 @@ export function BookingCalculator({
       setSubmitting(false);
     }
   };
-
-  const minLead = config.business?.minLeadDays ?? 1;
 
   return (
     <section id="booking-calculator-section" className="sc-container sc-section">
@@ -470,7 +480,9 @@ export function BookingCalculator({
               </div>
               <h3 className="text-xl font-extrabold">Pesanan Berhasil Terjadwal!</h3>
               <p className="text-xs text-emerald-200 mt-1">
-                Kode booking Anda siap dipantau melalui Portal Klien.
+                {backendStatus === 'connected'
+                  ? 'Pesanan tersimpan real-time di server cloud Sajian Catering. Silakan lanjutkan konfirmasi WhatsApp.'
+                  : 'Kode booking berhasil dibuat. Klik tombol Konfirmasi WhatsApp di bawah untuk mengirim rincian ke Admin.'}
               </p>
               <div className="mt-3 inline-block px-3.5 py-1 rounded-full bg-white/10 border border-amber-400/50 text-amber-300 text-xs font-mono font-bold">
                 Kode Booking: {confirmedOrder.id}

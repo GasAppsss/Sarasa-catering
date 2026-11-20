@@ -395,8 +395,10 @@ export function StaffAuthPage({ initialRole = ROLES.ADMIN, initialMode = 'login'
               }`}
             />
             {backendStatus === 'connected'
-              ? 'Terhubung ke Server API (JWT + Scrypt)'
-              : 'Mode Preview Lokal — Siap Uji Coba Penuh'}
+              ? 'Terhubung ke Server Cloud (JWT + Scrypt)'
+              : IS_DEV_PREVIEW
+                ? 'Mode Preview Lokal — Siap Uji Coba Penuh'
+                : 'Mode Lokal — Hubungkan Backend API untuk Sinkronisasi Cloud'}
           </span>
           <span className="font-mono text-emerald-300/70">RBAC v2</span>
         </div>
